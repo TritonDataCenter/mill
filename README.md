@@ -27,52 +27,14 @@ logs to Manta.
 
 Run the `mill` CLI to grep, analyze and get reports on your logs.
 
-Dev Notes:
-
-    mill grep ...
     mill cat ...
+    mill merge-cat ...
+    mill grep ...
 
-Examples:
-
-    mill cat service=NAME1 inst=ID start=DATE end=DATE-OR-RANGE
-    mill merge-cat [service=NAME1 service=NAME2 ...] [inst=ID1 inst=ID2...] start=DATE end=DATE-OR-RANGE
-    mill grep [service=NAME1 service=NAME2 ...] [inst=ID1 inst=ID2...] start=DATE end=DATE-OR-RANGE SEARCH-TERM
-        # (optional?) Does the merge on time if multiple service or inst.
-    mill cat service=NAME inst=ID start=DATE end=DATE-OR-RANGE
-        # default start is 10m ago, default end=5m  ("latest") ... kinda 'mill tail'
-    mill ls [service=NAME service=NAME2] inst=ID ...
-        # all services
-        # all instances
-        # date ranges with logs for a service/instance
-        sugar
-
-
-
-# mill Manta layout
-
-Default `MILL_DIR` is `mill`, so:
-
-    /$user/stor/$MILL_DIR/
-        logs/
-            [$dc?]/$service/$year/$month/$day/$hour/
-                $node.log
-                $node-$subhourlyperiod.log
-        archive/...    # or something for backdated logs to integrate
-
-Notes:
-
-    /trentm/stor/mill
-        logs/
-            nginx/2013/11/11/12/
-                # Upload 5 minute chunks to  allow working with smaller
-                # files for 'mill cat' etc. This might be a tunable at some
-                # point.
-                foo-05.log
-                foo-10.log
-                foo-15.log
-                foo-20.log
-                ...
-                foo-60.log
-        backfill/...    # TODO: or something for backdated logs to integrate
 
 # Configuration
+
+The config for `milld` and `mill` is a JSON file at
+"/var/db/mill/millconfig.json".
+
+TODO: change `mill` to use '~/.millconfig.json'?

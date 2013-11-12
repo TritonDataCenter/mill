@@ -49,23 +49,34 @@ markdown2extras: wiki-tables, code-friendly, cuddled-lists
 
     /$user/stor/mill/
         logs/
-            $service/$year/$month/$day/$hour/
-                # Upload 5 minute chunks to allow working with smaller
-                # files for 'mill cat' etc. This might be a tunable at some
-                # point.
-                $inst-$minute.log
+            $service/
+                $year/$month/$day/$hour/
+                    # Upload 5 minute chunks to allow working with smaller
+                    # files for 'mill cat' etc. This might be a tunable at some
+                    # point.
+                    $inst-$timestamp.$type.log
         backfill/...    # TODO: dir to hold past logs to backfill into logs/...
 
 Example:
 
     /trentm/stor/mill
         logs/
-            nginx/
+            webhead/
                 2013/11/11/12/
-                    foo-05.log   <--- records *up to* minute 5
-                    foo-10.log
-                    foo-15.log
-                    foo-20.log
+                    foo-1384294081423.apache.log
+                    foo-1384294129834.apache.log
                     ...
-                    foo-60.log
         backfill/...    # TODO: or something for backdated logs to integrate
+
+
+# Log types
+
+Rules: Cannot have '.' or '-' in log type strings (else it screws up the
+Manta mill layout).
+
+Supported types:
+
+- `apache`
+- `bunyan`
+
+TODO: perhaps use same naming as splunk (see Ben's PDF).

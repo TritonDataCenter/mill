@@ -76,10 +76,10 @@ MillDaemon.prototype.init = function (opts, args, callback) {
     }
 
     var self = this;
-    this.configPath = '/var/db/mill/millconfig.json'; // TODO: /etc ?
+    this.configPath = '/var/db/mill/millconfig.json';
     this.__defineGetter__('config', function () {
         if (!self._configCache) {
-            self._configCache = self.loadConfig();
+            self._configCache = common.loadConfigSync(self.configPath);
         }
         return self._configCache;
     });
@@ -90,26 +90,21 @@ MillDaemon.prototype.init = function (opts, args, callback) {
         }
         return self._dataDirCache;
     });
-    this.__defineGetter__('client', function () {
-        //XXX
+    this.__defineGetter__('mantaClient', function () {
+        var config = self.config;
         return manta.createClient({
             sign: manta.cliSigner({
-                keyId: opts.keyId,
-                user: opts.account
+                keyId: config.keyId,
+                user: config.account
             }),
-            user: opts.account,
-            url: opts.url,
+            user: config.account,
+            url: config.url,
             log: log
         });
     });
 
     // Cmdln class handles `opts.help`.
     Cmdln.prototype.init.apply(this, arguments);
-};
-
-
-MillDaemon.prototype.loadConfig = function loadConfig() {
-    return JSON.parse(fs.readFileSync(self.configPath, 'utf8'));
 };
 
 
