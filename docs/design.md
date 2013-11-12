@@ -23,18 +23,24 @@ markdown2extras: wiki-tables, code-friendly, cuddled-lists
 
 # mill client tool
 
-    mill cat service=NAME inst=ID start=DATE end=DATE-OR-RANGE
-        # default start is 10m ago, default end=5m  (i.e. "latest") ... kinda 'mill tail'
-    mill merge-cat [service=NAME1 service=NAME2 ...] [inst=ID1 inst=ID2...] start=DATE end=DATE-OR-RANGE
+    mill cat service=NAME inst=ID [start=DATE] [end=DATE-OR-RANGE]
+        Default start is 10m ago, default end=5m (i.e. "latest") ... kinda 'mill
+        tail'.
+
+    mill merge-cat [service=NAME1 service=NAME2 ...] [inst=ID1 inst=ID2...] [start=DATE] [end=DATE-OR-RANGE]
         Like `cat` but access multiple services and insdtances and will merge
         in time order.
+        TODO: Add other filter predicates.
+
     mill grep [service=NAME1 service=NAME2 ...] [inst=ID1 inst=ID2...] start=DATE end=DATE-OR-RANGE SEARCH-TERM
         (Optionally ?) Does the merge on time if multiple service or inst.
+
     mill ls [service=NAME service=NAME2] inst=ID ...
         # all services
         # all instances
         # date ranges with logs for a service/instance
         This is sugar for now. So punting as a *req* for MVP.
+
     mill config
         Like "git config ...".
 
@@ -63,6 +69,3 @@ Example:
                     ...
                     foo-60.log
         backfill/...    # TODO: or something for backdated logs to integrate
-
-
-

@@ -38,6 +38,104 @@ var log = bunyan.createLogger({
 
 //---- internal support stuff
 
+/**
+ * Return a time for the given ISO date or time of day string, if can.
+ * Else return undefined.
+ */
+function parseTime(s) {
+    var d;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        try {
+            d = new Date(s);
+        } catch(e) {}
+    } else if (/^\d{2}:\d{2}(:\d{2}Z?)?$/.test(s)) {
+        // Time of day: use that time from today (or yesterday)
+        var now = new Date();
+        d = new Date(now.toISOString().split('T')[0] + 'T' + s);
+        if (d > now) {
+            d = new Date(d.valueOf() - 24 * 60 * 60 * 1000);
+        }
+    }
+    if (d && String(d) === 'Invalid Date') {
+        d = undefined;
+    }
+    return d;
+}
+
+/**
+ * Calculate a relative date.
+ */
+function relativeDate(relTo, op, range) {
+    assert.object(relTo, 'relTo');
+    assert.ok(['-', '+'].indexOf(op) !== -1);
+    assert.string(range, 'range');
+
+    var rangePat = /^(\d+)([smhd])$/;
+    var match = rangePat.exec(range);
+    if (!match) {
+        throw new Error(format('invalid range: "%s"', range));
+    }
+
+    var num = match[1];
+    var type = match[2];
+    var t = relTo.valueOf();
+    switch (type) {
+        case 's':
+            t += num * 1000;
+            break;
+        case 'm':
+            t += num * 60 * 1000;
+            break;
+        case 'h':
+            t += num * 60 * 60 * 1000;
+            break;
+        case 'd':
+            t += num * 24 * 60 * 60 * 1000;
+            break;
+        default:
+            break;
+    }
+    return new Date(t);
+}
+
+
+/**
+ * Parsing the 'start' and 'end' args:
+ *
+ * start=<time> end=<time>
+ * start=<time>                 start time - 5m after that
+ * start=<time> end=<range>
+ * end=<time>                   start 5m before end time - end time
+ * start=<range> end=<time>     start <range> time before end - end time
+ * start=<range> end=<range>    ???
+ *      start=1h end=5m         from an hour ago to 5 minutes after that
+ * (no args)                    last 5m range available (10m ago - 5m ago ?)
+ */
+function parseStartEnd(startArg, endArg) {
+    var start = parseTime(startArg);
+    var end = parseTime(endArg);
+
+    if (start && end) {
+        /* pass */
+    } else if (start) {
+        end = relativeDate(start, '+', endArg || '5m');
+    } else if (end) {
+        start = relativeDate(end, '-', startArg || '5m');
+    } else {
+        var now = new Date();
+        start = relativeDate(now, '-', '10m');
+        end = relativeDate(start, '+', '5m');
+    }
+
+    if (end < start) {
+        callback(new errors.UsageError(format(
+            'end "%s" is before start "%s"', end, start)));
+        return;
+    }
+
+    return {start: start, end: end};
+}
+
 
 
 //---- the CLI
@@ -112,6 +210,89 @@ Mill.prototype.loadConfig = function loadConfig() {
     return JSON.parse(fs.readFileSync(self.configPath, 'utf8'));
 };
 
+
+Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
+    var self = this;
+    if (opts.help) {
+        this.do_help('help', {}, [subcmd], callback);
+        return;
+    }
+
+    var startArg;
+    var endArg;
+    var svc;
+    var inst;
+    for (var i = 0; i < args.length; i++) {
+        var arg = args[i];
+        var eq = arg.indexOf('=');
+        if (eq === -1) {
+            callback(new errors.UsageError('invalid argument, no "=": ' + arg));
+            return;
+        }
+        var field = arg.slice(0, eq);
+        var value = arg.slice(eq + 1);
+        switch (field) {
+        case 'service':
+        case 'svc':
+        case 's':
+            svc = value;
+            break;
+        case 'instance':
+        case 'inst':
+        case 'i':
+            inst = value;
+            break;
+        case 'start':
+            startArg = value;
+            break;
+        case 'end':
+            end = value;
+            break;
+        default:
+            callback(new errors.UsageError('unknown field: ' + field));
+            return;
+        }
+    }
+    if (!svc) {
+        callback(new errors.UsageError('no log "service" was given'));
+        return;
+    }
+    if (!inst) {
+        callback(new errors.UsageError('no log "instance" was given'));
+        return;
+    }
+
+    try {
+        var dates = parseStartEnd(startArg, endArg);
+    } catch (e) {
+        callback(new errors.UsageError(e, String(e)));
+        return;
+    }
+    var start = dates.start;
+    var end = dates.end;
+
+    p('TODO: cat service "%s" instance "%s" logs from %s to %s',
+        svc, inst, start.toISOString(), end.toISOString());
+
+    callback();
+};
+Mill.prototype.do_cat.options = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Show this help.'
+    }
+];
+Mill.prototype.do_cat.help = (
+    'Cat the given time range of a log for a service instance.\n'
+    + '\n'
+    + 'Usage:\n'
+    + '     {{name}} cat service=<service> instance=<instance> \\\n'
+    + '         [start=<time>] [end=<time-or-range>]\n'
+    + '\n'
+    + '{{options}}\n'
+    + 'XXX doc\n'
+);
 
 Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
     var self = this;
