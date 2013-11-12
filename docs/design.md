@@ -76,6 +76,7 @@ Manta mill layout).
 
 Supported types:
 
+- `generic`
 - `apache`
 - `bunyan`
 

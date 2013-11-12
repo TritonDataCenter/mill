@@ -18,14 +18,15 @@ var cmdln = require('cmdln'),
 var manta = require('manta');
 var sprintf = require('extsprintf').sprintf;
 
-var common = require('../lib/common');
+var common = require('../lib/common'),
+    zeroPad = common.zeroPad;
 var errors = require('../lib/errors');
 
 
 
 //---- globals & config
 
-var NAME = 'milld';
+var NAME = 'mill';
 
 var log = bunyan.createLogger({
     name: NAME,
@@ -42,15 +43,16 @@ var log = bunyan.createLogger({
  * Return a time for the given ISO date or time of day string, if can.
  * Else return undefined.
  */
-function parseTime(s) {
+function parseTime(s, now) {
     var d;
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    if (s === 'now') {
+        d = now;
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
         try {
             d = new Date(s);
         } catch(e) {}
     } else if (/^\d{2}:\d{2}(:\d{2}Z?)?$/.test(s)) {
         // Time of day: use that time from today (or yesterday)
-        var now = new Date();
         d = new Date(now.toISOString().split('T')[0] + 'T' + s);
         if (d > now) {
             d = new Date(d.valueOf() - 24 * 60 * 60 * 1000);
@@ -78,22 +80,29 @@ function relativeDate(relTo, op, range) {
 
     var num = match[1];
     var type = match[2];
-    var t = relTo.valueOf();
+    var delta = 0;
     switch (type) {
         case 's':
-            t += num * 1000;
+            delta += num * 1000;
             break;
         case 'm':
-            t += num * 60 * 1000;
+            delta += num * 60 * 1000;
             break;
         case 'h':
-            t += num * 60 * 60 * 1000;
+            delta += num * 60 * 60 * 1000;
             break;
         case 'd':
-            t += num * 24 * 60 * 60 * 1000;
+            delta += num * 24 * 60 * 60 * 1000;
             break;
         default:
             break;
+    }
+
+    var t = relTo.valueOf();
+    if (op === '+') {
+        t += delta;
+    } else {
+        t -= delta;
     }
     return new Date(t);
 }
@@ -112,8 +121,9 @@ function relativeDate(relTo, op, range) {
  * (no args)                    last 5m range available (10m ago - 5m ago ?)
  */
 function parseStartEnd(startArg, endArg) {
-    var start = parseTime(startArg);
-    var end = parseTime(endArg);
+    var now = new Date();
+    var start = parseTime(startArg, now);
+    var end = parseTime(endArg, now);
 
     if (start && end) {
         /* pass */
@@ -122,14 +132,13 @@ function parseStartEnd(startArg, endArg) {
     } else if (end) {
         start = relativeDate(end, '-', startArg || '5m');
     } else {
-        var now = new Date();
         start = relativeDate(now, '-', '10m');
         end = relativeDate(start, '+', '5m');
     }
 
     if (end < start) {
-        callback(new errors.UsageError(format(
-            'end "%s" is before start "%s"', end, start)));
+        throw new Error(format('end "%s" is before start "%s"',
+            end.toISOString(), start.toISOString()));
         return;
     }
 
@@ -205,6 +214,18 @@ Mill.prototype.init = function (opts, args, callback) {
     Cmdln.prototype.init.apply(this, arguments);
 };
 
+/**
+ * Return a milld Manta path for the given subpath element(s).
+ */
+Mill.prototype.mpath = function mpath() {
+    var args = [];
+    for (var i = 0; i < arguments.length; i++) {
+        args.push(String(arguments[i]));
+    }
+    var tail = path.join.apply(null, args);
+    return path.join(this.dataDir, tail);
+};
+
 
 Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
     var self = this;
@@ -241,7 +262,7 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
             startArg = value;
             break;
         case 'end':
-            end = value;
+            endArg = value;
             break;
         default:
             callback(new errors.UsageError('unknown field: ' + field));
@@ -269,6 +290,21 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
     log.info('cat service "%s" instance "%s" logs from %s to %s',
         svc, inst, start.toISOString(), end.toISOString());
 
+    var hours = [];
+    var currMs = (new Date(         // start of start hour
+        start.toISOString().split(':')[0] + ':00:00Z')).valueOf();
+    var endMs = end.valueOf() - 1;  // just before 'end'
+    while (currMs < endMs) {
+        hours.push(new Date(currMs));
+        currMs += 60 * 60 * 1000;
+    }
+    hours = hours.map(function (d) {
+        return format('%s/%s/%s/%s', d.getFullYear(),
+            zeroPad(d.getUTCMonth() + 1, 2),
+            zeroPad(d.getUTCDate(), 2),
+            zeroPad(d.getUTCHours(), 2));
+    });
+    p('XXX need to consider logs for these hours', hours)
 
     callback();
 };

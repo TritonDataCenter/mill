@@ -116,11 +116,7 @@ MillDaemon.prototype.mpath = function mpath() {
     for (var i = 0; i < arguments.length; i++) {
         args.push(String(arguments[i]));
     }
-    try {
-        var tail = path.join.apply(null, args);
-    } catch (ex) {
-        e('debug: path.join args:', args);
-    }
+    var tail = path.join.apply(null, args);
     return path.join(this.dataDir, tail);
 };
 
