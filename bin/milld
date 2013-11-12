@@ -1,0 +1,220 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2013 Joyent Inc. All rights reserved.
+ */
+
+var p = console.log;
+var crypto = require('crypto');
+var fs = require('fs');
+var path = require('path');
+var util = require('util'),
+    format = util.format;
+
+var assert = require('assert-plus');
+var async = require('async');
+var bunyan = require('bunyan');
+var cmdln = require('cmdln'),
+    Cmdln = cmdln.Cmdln;
+var manta = require('manta');
+var sprintf = require('extsprintf').sprintf;
+
+var common = require('../lib/common');
+var errors = require('../lib/errors');
+
+
+
+//---- globals & config
+
+var NAME = 'milld';
+
+var log = bunyan.createLogger({
+    name: NAME,
+    serializers: bunyan.stdSerializers,
+    stream: process.stderr,
+    level: 'info'
+});
+
+
+
+//---- internal support stuff
+
+
+
+//---- the CLI
+
+function MillDaemon() {
+    Cmdln.call(this, {
+        name: NAME,
+        desc: 'Mill agent to rotate and upload logs to Manta.',
+        options: [
+            {names: ['help', 'h'], type: 'bool', help: 'Print help and exit.'},
+            {name: 'version', type: 'bool', help: 'Print version and exit.'},
+            {names: ['verbose', 'v'], type: 'bool', help: 'Verbose/debug output.'}
+        ],
+        //helpBody: {
+        //
+        //},
+        helpOpts: {
+            includeEnv: true,
+            minHelpCol: 23 /* line up with option help */
+        }
+    });
+}
+util.inherits(MillDaemon, Cmdln);
+
+// Custom `init` to handle custom options (i.e. 'version' defined above).
+MillDaemon.prototype.init = function (opts, args, callback) {
+    if (opts.version) {
+        p(this.name, VERSION);
+        callback(false);
+        return;
+    }
+    this.opts = opts;
+    if (opts.verbose) {
+        log.level('trace');
+        log.src = true;
+    }
+
+    var self = this;
+    this.configPath = '/var/db/mill/millconfig.json'; // TODO: /etc ?
+    this.__defineGetter__('config', function () {
+        if (!self._configCache) {
+            self._configCache = self.loadConfig();
+        }
+        return self._configCache;
+    });
+    this.__defineGetter__('dataDir', function () {
+        if (!self._dataDirCache) {
+            var config = self.config;
+            self._dataDirCache = path.join('/', config.account, 'stor', 'mill');
+        }
+        return self._dataDirCache;
+    });
+    this.__defineGetter__('client', function () {
+        //XXX
+        return manta.createClient({
+            sign: manta.cliSigner({
+                keyId: opts.keyId,
+                user: opts.account
+            }),
+            user: opts.account,
+            url: opts.url,
+            log: log
+        });
+    });
+
+    // Cmdln class handles `opts.help`.
+    Cmdln.prototype.init.apply(this, arguments);
+};
+
+
+MillDaemon.prototype.loadConfig = function loadConfig() {
+    return JSON.parse(fs.readFileSync(self.configPath, 'utf8'));
+};
+
+
+/**
+ * Return a milld Manta path for the given subpath element(s).
+ */
+MillDaemon.prototype.mpath = function mpath() {
+    var args = [];
+    for (var i = 0; i < arguments.length; i++) {
+        args.push(String(arguments[i]));
+    }
+    try {
+        var tail = path.join.apply(null, args);
+    } catch (ex) {
+        e('debug: path.join args:', args);
+    }
+    return path.join(this.dataDir, tail);
+};
+
+
+MillDaemon.prototype.do_setup = function (subcmd, opts, args, callback) {
+    var self = this;
+    if (opts.help) {
+        this.do_help('help', {}, [subcmd], callback);
+        return;
+    } else if (args.length !== 0) {
+        return callback(new errors.UsageError(sprintf(
+            'incorrect number of arguments: "%s"', args.join(' '))));
+    }
+
+    XXX
+    callback();
+};
+MillDaemon.prototype.do_setup.options = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Show this help.'
+    }
+];
+MillDaemon.prototype.do_setup.help = (
+    'Interactively setup/configure milld.\n'
+    + '\n'
+    + 'Usage:\n'
+    + '     {{name}} setup\n'
+    + '\n'
+    + '{{options}}\n'
+    + '\n'
+    + '\n'
+);
+
+
+MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
+    var self = this;
+    if (opts.help) {
+        this.do_help('help', {}, [subcmd], callback);
+        return;
+    } else if (args.length !== 0) {
+        return callback(new errors.UsageError(sprintf(
+            'incorrect number of arguments: "%s"', args.join(' '))));
+    }
+
+    XXX
+    callback();
+};
+MillDaemon.prototype.do_start.options = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Show this help.'
+    }
+];
+MillDaemon.prototype.do_start.help = (
+    'Start milld daemon.\n'
+    + '\n'
+    + 'Usage:\n'
+    + '     {{name}} start\n'
+    + '\n'
+    + '{{options}}'
+);
+
+
+
+
+//---- mainline
+
+if (require.main === module) {
+    var milld = new MillDaemon();
+    milld.main(process.argv, function (err, subcmd) {
+        var code = err && (err.body ? err.body.code : err.code);
+        if (err && code !== 'NoCommand') {
+            var subcmdStr = subcmd ? ' ' + subcmd : '';
+            if (code) {
+                console.error('%s%s: error (%s): %s', milld.name, subcmdStr,
+                    code, err.message);
+            } else {
+                console.error('%s%s: error: %s', milld.name, subcmdStr,
+                    err.message);
+            }
+            if (milld.opts.verbose && err.stack) {
+                console.error('\n' + err.stack);
+            }
+            process.exit(err.exitStatus !== undefined ? err.exitStatus : 1);
+        } else {
+            process.exit(0);
+        }
+    });
+}
