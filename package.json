@@ -12,6 +12,7 @@
     "dashdash": "1.3.2",
     "extsprintf": "1.0.2",
     "manta": "git+ssh://git@github.com:joyent/node-manta.git#ecebe40",
+    "once": "1.3.0",
     "vasync": "1.4.0",
     "verror": "1.3.6"
   },
