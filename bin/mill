@@ -346,3 +346,4 @@ if (require.main === module) {
         }
     });
 }
+// vim: set softtabstop=4 shiftwidth=4:
