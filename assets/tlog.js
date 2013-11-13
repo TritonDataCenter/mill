@@ -43,6 +43,7 @@ if (!Transform)
 
 
 function Tlog(options) {
+    this._sawHead = false;
     this._prevDate = 0;
     this._buffer = '';
     Transform.call(this, options);
@@ -69,6 +70,12 @@ var ISO_TIME_RE = /([0-9]{4}-[0-9]{2}-[0-9]{2})(?:T([0-9]{2}:[0-9]{2})(:[0-9]{2}
 
 Tlog.prototype._parseLine = function(line, index, lines) {
     debug('_parseLine %j index=%j', line, index);
+    if (!this._sawHead) {
+      this._sawHead = true;
+      this.push(line, 'utf8');
+      return;
+    }
+
     var bun, iso, clf, date;
 
     // bunyan is a simpler regexp, so try that first.
