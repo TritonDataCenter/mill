@@ -43,10 +43,9 @@ if (!Transform)
 
 
 function Tlog(options) {
-  this._pos = 0;
-  this._buffer = '';
-  this._parseLine = this._parseBunyanLine.bind(this);
-  Transform.call(this, options);
+    this._prevDate = 0;
+    this._buffer = '';
+    Transform.call(this, options);
 }
 util.inherits(Tlog, Transform);
 module.exports = Tlog;
@@ -64,23 +63,41 @@ Tlog.prototype._transform = function(chunk, encoding, cb) {
     cb();
 };
 
-var BUNYAN_TIME_RE = /,"time":"([0-9T:Z.-]+)"/;
-Tlog.prototype._parseBunyanLine = function(line, index, lines) {
-    debug('_parseBunyanLine %j index=%j', line, index);
-    // Regex twice as fast as `JSON.parse(line).time`.
-    var match = BUNYAN_TIME_RE.exec(line);
-    if (!match) {
-        p('XXX no time in bunyan line: %s', line)
-        return;
-    }
-    var timestamp = new Date(match[1]).valueOf();
-    if (isNaN(timestamp)) {
-        p('XXX invalid time in bunyan line: %s', line)
-        return;
-    }
-    this.push(String(timestamp) + ',' + line + '\n', 'utf8');
-};
+var BUNYAN_TIME_RE = /^\{.*,"time":"([0-9T:Z.-]+)".*\}$/;
+var CLF_TIME_RE = /([0-9]{1,2})\/([A-Za-z]{3})\/([0-9]{4}):([0-9]{2}:[0-9]{2}:[0-9]{2})( ([+-][0-9]{4}|Z))/
+var ISO_TIME_RE = /([0-9]{4}-[0-9]{2}-[0-9]{2})(?:T([0-9]{2}:[0-9]{2})(:[0-9]{2}(\.[0-9]+)?)?)?(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4})?/
 
+Tlog.prototype._parseLine = function(line, index, lines) {
+    debug('_parseLine %j index=%j', line, index);
+    var bun, iso, clf, date;
+
+    // bunyan is a simpler regexp, so try that first.
+    var bun = BUNYAN_TIME_RE.exec(line);
+    if (bun)
+      date = new Date(bun[1]).getTime();
+
+    if (!date) {
+      iso = ISO_TIME_RE.exec(line);
+      if (iso)
+        date = new Date(iso[0]).getTime();
+    }
+
+    if (!date) {
+      var c = CLF_TIME_RE.exec(line);
+      if (c) {
+        clf = c[1] + ' ' + c[2] + ' ' + c[3] + ' ' + c[4] + ' ' + c[6];
+        date = new Date(clf).getTime();
+      }
+    }
+
+    if (!date) {
+      debug('_parseLine failed. line:%j %j', index, line);
+      date = this._prevDate;
+    } else {
+      this._prevDate = date;
+    }
+    this.push(date + ',' + line + '\n', 'utf8');
+};
 
 if (require.main === module) {
     var tlog = new Tlog();
