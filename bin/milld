@@ -164,6 +164,8 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
             log: log,
             mantaClient: self.mantaClient,
             dataDir: self.config.dataDir,
+            // TODO: `i` in rotateDir is a hack, but really want one uploader only
+            rotateDir: path.join(self.config.rotateDir, String(i)),
             source: sources[i]
         }
         var r = rotator.createRotator(opts);

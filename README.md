@@ -39,8 +39,10 @@ TODO: `~/.mill.json` for mill client config.
 
 Variable        | Description
 ---             | ---
-`manta`         | Manta auth info. Generally they fallback to the std "MANTA_" envvars.
-`manta.url`     | The Manta URL. Defaults to `MANTA_URL` envvar.
-`manta.account` | The Manta user with which to auth. Defaults to `MANTA_USER` envvar.
-`manta.keyId`   | The ssh public key fingerprint with which to auth. Defaults to `MANTA_KEY_ID` envvar.
-`manta.dataDir` | Mill's base dir in Manta. If not in the config file, it will use `MILL_DIR` from the env. By default this is "/$account/stor/mill",
+manta         | Manta auth info. Generally they fallback to the std "MANTA_" envvars.
+manta.url     | The Manta URL. Defaults to `MANTA_URL` envvar.
+manta.account | The Manta user with which to auth. Defaults to `MANTA_USER` envvar.
+manta.keyId   | The ssh public key fingerprint with which to auth. Defaults to `MANTA_KEY_ID` envvar.
+manta.dataDir | Mill's base dir in Manta. If not in the config file, it will use `MILL_DIR` from the env. By default this is "/$account/stor/mill",
+sources       | Array of "source" objects: the details for a log file for milld to monitor.
+rotateDir     | The dir to which `milld` will stage rotated log files for upload. Defaults to "/var/tmp/mill".
