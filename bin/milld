@@ -11,15 +11,16 @@ var util = require('util'),
     format = util.format;
 
 var assert = require('assert-plus');
-var async = require('async');
 var bunyan = require('bunyan');
 var cmdln = require('cmdln'),
     Cmdln = cmdln.Cmdln;
 var manta = require('manta');
 var sprintf = require('extsprintf').sprintf;
+var vasync = require('vasync');
 
 var common = require('../lib/common');
 var errors = require('../lib/errors');
+var rotator = require('../lib/daemon/rotator');
 
 
 //---- globals & config
@@ -152,14 +153,27 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
             'incorrect number of arguments: "%s"', args.join(' '))));
     }
 
-    var Rotator = require('../lib/daemon/rotator');
-    var config = JSON.parse(fs.readFileSync(__dirname + '/../etc/milld.json'));
-    config.log = log;
-    config.manta = self.config;
-    config.manta.user = config.manta.account;
-    config.manta.key = '/Users/trentm/.ssh/id_rsa.joyent2'
-    p('XXX config', config)
-    new Rotator(config, function (err) {
+    var sources = self.config.sources || [];
+    self.rotators = [];
+    for (var i = 0; i < sources.length; i++) {
+        var opts = {
+            log: log,
+            mantaClient: self.mantaClient,
+            dataDir: self.config.dataDir,
+            source: sources[i]
+        }
+        var r = rotator.createRotator(opts);
+        self.rotators.push(r);
+    }
+
+    vasync.forEachParallel({
+        inputs: self.rotators,
+        func: function startRotator(r, next) {
+            r.start(function (err) {
+                next(err);
+            });
+        }
+    }, function (err, results) {
         callback(err);
     });
 };

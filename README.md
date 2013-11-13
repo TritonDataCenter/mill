@@ -34,15 +34,13 @@ Run the `mill` CLI to grep, analyze and get reports on your logs.
 
 # Configuration
 
-The config for `milld` and `mill` is a JSON file at
-"/var/db/mill/millconfig.json".
+The config for `milld` and `mill` is a JSON file at "/etc/mill.json".
+TODO: `~/.mill.json` for mill client config.
 
-TODO: change `mill` to use '~/.millconfig.json'?
-
-- `url` is the Manta URL. Defaults to `MANTA_URL` envvar.
-- `account` is the Manta user with which to auth. Defaults to `MANTA_USER`
-  envvar.
-- `keyId` is the ssh public key fingerprint with which to auth. Defaults to
-  `MANTA_KEY_ID` envvar.
-- `dataDir` is mill's base dir in Manta. If not in the config file, it will
-  use `MILL_DIR` from the env. By default this is "/$account/stor/mill",
+Variable        | Description
+---             | ---
+`manta`         | Manta auth info. Generally they fallback to the std "MANTA_" envvars.
+`manta.url`     | The Manta URL. Defaults to `MANTA_URL` envvar.
+`manta.account` | The Manta user with which to auth. Defaults to `MANTA_USER` envvar.
+`manta.keyId`   | The ssh public key fingerprint with which to auth. Defaults to `MANTA_KEY_ID` envvar.
+`manta.dataDir` | Mill's base dir in Manta. If not in the config file, it will use `MILL_DIR` from the env. By default this is "/$account/stor/mill",
