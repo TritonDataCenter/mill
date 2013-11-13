@@ -22,7 +22,6 @@ var common = require('../lib/common');
 var errors = require('../lib/errors');
 
 
-
 //---- globals & config
 
 var NAME = 'milld';
@@ -36,10 +35,6 @@ var log = bunyan.createLogger({
 
 
 
-//---- internal support stuff
-
-
-
 //---- the CLI
 
 function MillDaemon() {
@@ -49,7 +44,8 @@ function MillDaemon() {
         options: [
             {names: ['help', 'h'], type: 'bool', help: 'Print help and exit.'},
             {name: 'version', type: 'bool', help: 'Print version and exit.'},
-            {names: ['verbose', 'v'], type: 'bool', help: 'Verbose/debug output.'}
+            {names: ['verbose', 'v'], type: 'bool', help: 'Verbose/debug output.'},
+            {names: ['file', 'f'], type: 'string', help: 'Config file.', helpArg: '<config>'}
         ],
         //helpBody: {
         //
@@ -76,7 +72,7 @@ MillDaemon.prototype.init = function (opts, args, callback) {
     }
 
     var self = this;
-    this.configPath = '/var/db/mill/millconfig.json';
+    this.configPath = opts.file || '/etc/mill.json';
     this.__defineGetter__('config', function () {
         if (!self._configCache) {
             self._configCache = common.loadConfigSync(self.configPath);
@@ -156,14 +152,27 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
             'incorrect number of arguments: "%s"', args.join(' '))));
     }
 
-    XXX
-    callback();
+    var Rotator = require('../lib/daemon/rotator');
+    var config = JSON.parse(fs.readFileSync(__dirname + '/../etc/milld.json'));
+    config.log = log;
+    config.manta = self.config;
+    config.manta.user = config.manta.account;
+    config.manta.key = '/Users/trentm/.ssh/id_rsa.joyent2'
+    p('XXX config', config)
+    new Rotator(config, function (err) {
+        callback(err);
+    });
 };
 MillDaemon.prototype.do_start.options = [
     {
         names: ['help', 'h'],
         type: 'bool',
         help: 'Show this help.'
+    },
+    {
+        names: ['file', 'f'],
+        type: 'string',
+        help: 'Config file.'
     }
 ];
 MillDaemon.prototype.do_start.help = (
@@ -197,8 +206,6 @@ if (require.main === module) {
                 console.error('\n' + err.stack);
             }
             process.exit(err.exitStatus !== undefined ? err.exitStatus : 1);
-        } else {
-            process.exit(0);
         }
     });
 }
