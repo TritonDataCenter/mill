@@ -1,3 +1,16 @@
+- [Trent?] .log -> .tlog job run post-upload: the "tlog" job
+- [Yunong?] Perhaps just have *one* uploader for all sources rather than one
+  for each?
+- [Trent] fix 'mill cat' to work with the .tlog files
+- [Isaac] .tlog -> .ilog processing to run post-upload
+  I think it should derive from the *.tlog* because then we can re-run the
+  .ilog generation after the .log files have been removed.
+- mill merge-cat
+- mill grep
+
+
+# to discuss, todo later
+
 - mill cat/grep: support '-l|--local' arg for interpreting start and end values in local time
 - mill cat/grep: support svc= and inst= being substring matches
 - milld source config: reasonable default for 'instance' (hostname or zonename)
