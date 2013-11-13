@@ -1,13 +1,9 @@
+- mill merge-cat
+- mill grep
 - [Y? T?] Get metadata header line into logs.... to be used for ijob processing?
-- [Trent?] .log -> .tlog job run post-upload: the "tlog" job
-- [Yunong?] Perhaps just have *one* uploader for all sources rather than one
-  for each?
-- [Trent] fix 'mill cat' to work with the .tlog files
 - [Isaac] .tlog -> .ilog processing to run post-upload
   I think it should derive from the *.tlog* because then we can re-run the
   .ilog generation after the .log files have been removed.
-- mill merge-cat
-- mill grep
 
 
 # to discuss, todo later
@@ -24,4 +20,5 @@
   time swath instead of a desired tight 5 minute slop.
   Potential Solution: Get the .tlog generation to rebalance on 5-minute
   slots.
-
+- [Yunong?] Perhaps just have *one* uploader for all sources rather than one
+  for each?
