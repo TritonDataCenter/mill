@@ -11,12 +11,11 @@ var util = require('util'),
     format = util.format;
 
 var assert = require('assert-plus');
-var async = require('async');
 var bunyan = require('bunyan');
 var cmdln = require('cmdln'),
     Cmdln = cmdln.Cmdln;
 var manta = require('manta');
-var sprintf = require('extsprintf').sprintf;
+var vasync = require('vasync');
 
 var common = require('../lib/common'),
     zeroPad = common.zeroPad;
@@ -32,7 +31,7 @@ var log = bunyan.createLogger({
     name: NAME,
     serializers: bunyan.stdSerializers,
     stream: process.stderr,
-    level: 'info'
+    level: 'warn'
 });
 
 
@@ -48,9 +47,7 @@ function parseTime(s, now) {
     if (s === 'now') {
         d = now;
     } else if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-        try {
-            d = new Date(s);
-        } catch(e) {}
+        d = new Date(s);
     } else if (/^\d{2}:\d{2}(:\d{2}Z?)?$/.test(s)) {
         // Time of day: use that time from today (or yesterday)
         d = new Date(now.toISOString().split('T')[0] + 'T' + s);
@@ -93,8 +90,6 @@ function relativeDate(relTo, op, range) {
             break;
         case 'd':
             delta += num * 24 * 60 * 60 * 1000;
-            break;
-        default:
             break;
     }
 
@@ -198,16 +193,19 @@ Mill.prototype.init = function (opts, args, callback) {
         return self._dataDirCache;
     });
     this.__defineGetter__('mantaClient', function () {
-        var config = self.config;
-        return manta.createClient({
-            sign: manta.cliSigner({
-                keyId: config.keyId,
-                user: config.account
-            }),
-            user: config.account,
-            url: config.url,
-            log: log
-        });
+        if (!self._mantaClientCache) {
+            var config = self.config;
+            self._mantaClientCache = manta.createClient({
+                sign: manta.cliSigner({
+                    keyId: config.keyId,
+                    user: config.account
+                }),
+                user: config.account,
+                url: config.url,
+                log: log
+            });
+        }
+        return self._mantaClientCache;
     });
 
     // Cmdln class handles `opts.help`.
@@ -224,6 +222,96 @@ Mill.prototype.mpath = function mpath() {
     }
     var tail = path.join.apply(null, args);
     return path.join(this.dataDir, tail);
+};
+
+
+/**
+ * Find relevant uploaded mill logs for a given set of: start (Date),
+ * end (Date), svc, and inst.
+ *
+ * TODO: eventually support multiple svc and inst. And substring matching.
+ */
+Mill.prototype.find = function find(args, callback) {
+    var self = this;
+    assert.object(args, 'args');
+    assert.object(args.start, 'args.start');
+    assert.object(args.end, 'args.end');
+    assert.string(args.svc, 'args.svc');
+    assert.string(args.inst, 'args.inst');
+
+    var hours = [];
+    var currMs = (new Date(         // start of start hour
+        args.start.toISOString().split(':')[0] + ':00:00Z')).valueOf();
+    var endMs = args.end.valueOf() - 1;  // just before 'end'
+    while (currMs < endMs) {
+        hours.push(new Date(currMs));
+        currMs += 60 * 60 * 1000;
+    }
+    hours = hours.map(function (d) {
+        return format('%s/%s/%s/%s', d.getFullYear(),
+            zeroPad(d.getUTCMonth() + 1, 2),
+            zeroPad(d.getUTCDate(), 2),
+            zeroPad(d.getUTCHours(), 2));
+    });
+    log.info({hours: hours}, 'need to consider logs for these hours');
+
+    var hits = [];
+    var startTime = args.start.valueOf();
+    var endTime = args.end.valueOf();
+    vasync.forEachPipeline({
+        inputs: hours,
+        func: function oneHour(hour, nextHour) {
+            var dir = self.mpath('logs', args.svc, hour);
+            self.mantaClient.ls(dir, function (err, res) {
+                if (err) {
+                    if (err.code === 'NotFoundError') {
+                        // TODO: sanity check the 'svc' here for nicer UX
+                        return nextHour();
+                    }
+                    return nextHour(err);
+                }
+                foundOne = true;
+                var files = [];
+                res.on('object', function (obj) {
+                    // TODO: this *could* be false positives if another instance
+                    // of the same service has a name with `inst` as a prefix.
+                    if (obj.name.slice(0, args.inst.length) === args.inst) {
+                        files.push(path.join(dir, obj.name));
+                    }
+                });
+                res.once('end', function () {
+                    files.sort();
+                    for (var i = 0; i < files.length; i++) {
+                        var file = files[i];
+                        var stamp = file.slice(file.lastIndexOf('-') + 1);
+                        stamp = Number(stamp.split('.')[0]);
+                        if (!hits.length) {
+                            if (stamp > startTime) {
+                                // The first log rotated after `start`.
+                                hits.push(file);
+                            }
+                        } else {
+                            // Already found the first one. Every log file after
+                            // that until the *last* one should be cat'ed.
+                            hits.push(file);
+                        }
+                        if (stamp > endTime) {
+                            // All rotations after this won't have records
+                            // before `end`.
+                            break;
+                        }
+                    }
+                    nextHour();
+                });
+            });
+        }
+    }, function (err, results) {
+        if (err) {
+            callback(err);
+        } else {
+            callback(null, hits);
+        }
+    });
 };
 
 
@@ -290,23 +378,32 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
     log.info('cat service "%s" instance "%s" logs from %s to %s',
         svc, inst, start.toISOString(), end.toISOString());
 
-    var hours = [];
-    var currMs = (new Date(         // start of start hour
-        start.toISOString().split(':')[0] + ':00:00Z')).valueOf();
-    var endMs = end.valueOf() - 1;  // just before 'end'
-    while (currMs < endMs) {
-        hours.push(new Date(currMs));
-        currMs += 60 * 60 * 1000;
-    }
-    hours = hours.map(function (d) {
-        return format('%s/%s/%s/%s', d.getFullYear(),
-            zeroPad(d.getUTCMonth() + 1, 2),
-            zeroPad(d.getUTCDate(), 2),
-            zeroPad(d.getUTCHours(), 2));
+    var findOpts = {
+        start: start,
+        end: end,
+        svc: svc,
+        inst: inst
+    };
+    self.find(findOpts, function (findErr, files) {
+        if (findErr) {
+            return callback(findErr);
+        }
+        log.info({files: files}, 'cat %d files', files.length);
+        vasync.forEachPipeline({
+            inputs: files,
+            func: function catOne(file, next) {
+                self.mantaClient.get(file, function (getErr, stream) {
+                    if (getErr) {
+                        return next(getErr);
+                    }
+                    stream.pipe(process.stdout, {end: false});
+                    stream.once('end', next);
+                });
+            }
+        }, function (err, results) {
+            callback(err);
+        });
     });
-    p('XXX need to consider logs for these hours', hours)
-
-    callback();
 };
 Mill.prototype.do_cat.options = [
     {
@@ -326,13 +423,14 @@ Mill.prototype.do_cat.help = (
     + 'XXX doc\n'
 );
 
+
 Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
     var self = this;
     if (opts.help) {
         this.do_help('help', {}, [subcmd], callback);
         return;
     } else if (args.length !== 0) {
-        return callback(new errors.UsageError(sprintf(
+        return callback(new errors.UsageError(format(
             'incorrect number of arguments: "%s"', args.join(' '))));
     }
 
