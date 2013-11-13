@@ -1,3 +1,4 @@
+- [Y? T?] Get metadata header line into logs.... to be used for ijob processing?
 - [Trent?] .log -> .tlog job run post-upload: the "tlog" job
 - [Yunong?] Perhaps just have *one* uploader for all sources rather than one
   for each?
