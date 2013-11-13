@@ -72,7 +72,7 @@ Tlog.prototype._parseLine = function(line, index, lines) {
     debug('_parseLine %j index=%j', line, index);
     if (!this._sawHead) {
       this._sawHead = true;
-      this.push(line, 'utf8');
+      this.push(line + '\n', 'utf8');
       return;
     }
 
@@ -110,4 +110,3 @@ if (require.main === module) {
     var tlog = new Tlog();
     process.stdin.pipe(tlog).pipe(process.stdout);
 }
-
