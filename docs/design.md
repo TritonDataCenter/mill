@@ -66,12 +66,12 @@ Example:
                     # original files...
                     foo-1384294081423.apache.log
                     foo-1384294129834.apache.log
-                    ...
                     # ... are processed to
-                    foo-1384294081423.apache.log
-                    foo-1384294081423.apache.log
-                    foo-1384294129834.apache.log
-                    foo-1384294129834.apache.log
+                    foo-1384294081423.apache.tlog   # "$timestamp," prefixed
+                    foo-1384294081423.apache.ilog   # json-ified index
+                    foo-1384294129834.apache.tlog
+                    foo-1384294129834.apache.ilog
+                    # ... then the original ".log" is deleted
         backfill/...    # TODO: or something for backdated logs to integrate
 
 

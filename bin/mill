@@ -128,7 +128,7 @@ function parseStartEnd(startArg, endArg) {
         start = relativeDate(end, '-', startArg || '5m');
     } else {
         start = relativeDate(now, '-', '10m');
-        end = relativeDate(start, '+', '5m');
+        end = now;  //XXX relativeDate(start, '+', '5m');
     }
 
     if (end < start) {
@@ -411,10 +411,121 @@ Mill.prototype.do_cat.help = (
     + '\n'
     + 'Usage:\n'
     + '     {{name}} cat service=<service> instance=<instance> \\\n'
-    + '         [start=<time>] [end=<time-or-range>]\n'
+    + '         [start=<time-or-range>] [end=<time-or-range>]\n'
     + '\n'
     + '{{options}}\n'
-    + 'Cat out all logs for the given XXX doc\n'
+    + 'Cat logs for a service instance for the given time range. If "start"\n'
+    + 'and "end" are not given it defaults to the last 10 minutes.'
+);
+
+Mill.prototype.do_merge_cat = function (subcmd, opts, args, callback) {
+    var self = this;
+    if (opts.help) {
+        this.do_help('help', {}, [subcmd], callback);
+        return;
+    }
+
+    var startArg;
+    var endArg;
+    var svc;
+    var inst;
+    for (var i = 0; i < args.length; i++) {
+        var arg = args[i];
+        var eq = arg.indexOf('=');
+        if (eq === -1) {
+            callback(new errors.UsageError('invalid argument, no "=": ' + arg));
+            return;
+        }
+        var field = arg.slice(0, eq);
+        var value = arg.slice(eq + 1);
+        switch (field) {
+        case 'service':
+        case 'svc':
+        case 's':
+            svc = value;
+            break;
+        case 'instance':
+        case 'inst':
+        case 'i':
+            inst = value;
+            break;
+        case 'start':
+            startArg = value;
+            break;
+        case 'end':
+            endArg = value;
+            break;
+        default:
+            callback(new errors.UsageError('unknown field: ' + field));
+            return;
+        }
+    }
+    if (!svc) {
+        callback(new errors.UsageError('no log "service" was given'));
+        return;
+    }
+    if (!inst) {
+        callback(new errors.UsageError('no log "instance" was given'));
+        return;
+    }
+
+    try {
+        var dates = parseStartEnd(startArg, endArg);
+    } catch (e) {
+        callback(new errors.UsageError(e, String(e)));
+        return;
+    }
+    var start = dates.start;
+    var end = dates.end;
+
+    log.info('cat service "%s" instance "%s" logs from %s to %s',
+        svc, inst, start.toISOString(), end.toISOString());
+
+    var findOpts = {
+        start: start,
+        end: end,
+        svc: svc,
+        inst: inst
+    };
+    self.find(findOpts, function (findErr, files) {
+        if (findErr) {
+            return callback(findErr);
+        }
+        log.info({files: files}, 'cat %d files', files.length);
+        vasync.forEachPipeline({
+            inputs: files,
+            func: function catOne(file, next) {
+                log.info({file: file}, 'cat a file');
+                self.mantaClient.get(file, function (getErr, stream) {
+                    if (getErr) {
+                        return next(getErr);
+                    }
+                    stream.pipe(process.stdout, {end: false});
+                    stream.once('end', next);
+                });
+            }
+        }, function (err, results) {
+            callback(err);
+        });
+    });
+};
+Mill.prototype.do_merge_cat.options = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Show this help.'
+    }
+];
+Mill.prototype.do_merge_cat.help = (
+    'Cat the given time range of a log for a service instance.\n'
+    + '\n'
+    + 'Usage:\n'
+    + '     {{name}} cat service=<service> instance=<instance> \\\n'
+    + '         [start=<time-or-range>] [end=<time-or-range>]\n'
+    + '\n'
+    + '{{options}}\n'
+    + 'Cat logs for a service instance for the given time range. If "start"\n'
+    + 'and "end" are not given it defaults to the last 10 minutes.'
 );
 
 
