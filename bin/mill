@@ -185,13 +185,6 @@ Mill.prototype.init = function (opts, args, callback) {
         }
         return self._configCache;
     });
-    this.__defineGetter__('dataDir', function () {
-        if (!self._dataDirCache) {
-            var config = self.config;
-            self._dataDirCache = path.join('/', config.account, 'stor', 'mill');
-        }
-        return self._dataDirCache;
-    });
     this.__defineGetter__('mantaClient', function () {
         if (!self._mantaClientCache) {
             var config = self.config;
@@ -221,7 +214,7 @@ Mill.prototype.mpath = function mpath() {
         args.push(String(arguments[i]));
     }
     var tail = path.join.apply(null, args);
-    return path.join(this.dataDir, tail);
+    return path.join(this.config.dataDir, tail);
 };
 
 
@@ -248,7 +241,7 @@ Mill.prototype.find = function find(args, callback) {
         currMs += 60 * 60 * 1000;
     }
     hours = hours.map(function (d) {
-        return format('%s/%s/%s/%s', d.getFullYear(),
+        return format('%s/%s/%s/%s', d.getUTCFullYear(),
             zeroPad(d.getUTCMonth() + 1, 2),
             zeroPad(d.getUTCDate(), 2),
             zeroPad(d.getUTCHours(), 2));
@@ -392,6 +385,7 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
         vasync.forEachPipeline({
             inputs: files,
             func: function catOne(file, next) {
+                log.info({file: file}, 'cat a file');
                 self.mantaClient.get(file, function (getErr, stream) {
                     if (getErr) {
                         return next(getErr);
@@ -420,7 +414,7 @@ Mill.prototype.do_cat.help = (
     + '         [start=<time>] [end=<time-or-range>]\n'
     + '\n'
     + '{{options}}\n'
-    + 'XXX doc\n'
+    + 'Cat out all logs for the given XXX doc\n'
 );
 
 

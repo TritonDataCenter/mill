@@ -63,9 +63,15 @@ Example:
         logs/
             webhead/
                 2013/11/11/12/
+                    # original files...
                     foo-1384294081423.apache.log
                     foo-1384294129834.apache.log
                     ...
+                    # ... are processed to
+                    foo-1384294081423.apache.log
+                    foo-1384294081423.apache.log
+                    foo-1384294129834.apache.log
+                    foo-1384294129834.apache.log
         backfill/...    # TODO: or something for backdated logs to integrate
 
 

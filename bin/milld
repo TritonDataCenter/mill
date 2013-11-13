@@ -83,13 +83,6 @@ MillDaemon.prototype.init = function (opts, args, callback) {
         }
         return self._configCache;
     });
-    this.__defineGetter__('dataDir', function () {
-        if (!self._dataDirCache) {
-            var config = self.config;
-            self._dataDirCache = path.join('/', config.account, 'stor', 'mill');
-        }
-        return self._dataDirCache;
-    });
     this.__defineGetter__('mantaClient', function () {
         var config = self.config;
         return manta.createClient({
@@ -117,7 +110,7 @@ MillDaemon.prototype.mpath = function mpath() {
         args.push(String(arguments[i]));
     }
     var tail = path.join.apply(null, args);
-    return path.join(this.dataDir, tail);
+    return path.join(this.config.dataDir, tail);
 };
 
 
