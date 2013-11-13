@@ -153,7 +153,11 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
             'incorrect number of arguments: "%s"', args.join(' '))));
     }
 
-    var sources = self.config.sources || [];
+    var sources = self.config.sources;
+    if (!sources || sources.length === 0) {
+        callback(new errors.UsageError('no sources configured'));
+        return;
+    }
     self.rotators = [];
     for (var i = 0; i < sources.length; i++) {
         var opts = {
@@ -182,11 +186,6 @@ MillDaemon.prototype.do_start.options = [
         names: ['help', 'h'],
         type: 'bool',
         help: 'Show this help.'
-    },
-    {
-        names: ['file', 'f'],
-        type: 'string',
-        help: 'Config file.'
     }
 ];
 MillDaemon.prototype.do_start.help = (
