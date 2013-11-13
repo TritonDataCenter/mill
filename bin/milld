@@ -159,6 +159,14 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
         return;
     }
     self.rotators = [];
+    var tlog = self.mpath('assets', 'tlog.js')
+    var jobSpec = {
+        name: 'tlog',
+        phases: [ {
+            exec: format('/assets%s | mput $MANTA_INPUT_OBJECT.t && mrm $MANTA_INPUT_OBJECT', tlog),
+            assets: [tlog],
+        } ]
+    }
     for (var i = 0; i < sources.length; i++) {
         var opts = {
             log: log,
@@ -166,6 +174,7 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
             dataDir: self.config.dataDir,
             // TODO: `i` in rotateDir is a hack, but really want one uploader only
             rotateDir: path.join(self.config.rotateDir, String(i)),
+            jobConfig: jobSpec,
             source: sources[i]
         }
         var r = rotator.createRotator(opts);

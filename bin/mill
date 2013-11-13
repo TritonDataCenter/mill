@@ -265,10 +265,12 @@ Mill.prototype.find = function find(args, callback) {
                 }
                 foundOne = true;
                 var files = [];
+                // Only consider the *.log.t files for this instance.
+                var pat = new RegExp('^' + args.inst + '-\\d+\\.\\w+\\.log\\.t$');
                 res.on('object', function (obj) {
                     // TODO: this *could* be false positives if another instance
                     // of the same service has a name with `inst` as a prefix.
-                    if (obj.name.slice(0, args.inst.length) === args.inst) {
+                    if (pat.test(obj.name)) {
                         files.push(path.join(dir, obj.name));
                     }
                 });
@@ -390,7 +392,13 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
                     if (getErr) {
                         return next(getErr);
                     }
-                    stream.pipe(process.stdout, {end: false});
+                    // TODO: proper line handling (lstream)
+                    stream.setEncoding('binary');
+                    stream.on('data', function (chunk) {
+                        process.stdout.write(chunk.split('\n').map(function (l) {
+                            return l.replace(/^\d+,/, '');
+                        }).join('\n'), 'binary');
+                    })
                     stream.once('end', next);
                 });
             }
@@ -500,7 +508,13 @@ Mill.prototype.do_merge_cat = function (subcmd, opts, args, callback) {
                     if (getErr) {
                         return next(getErr);
                     }
-                    stream.pipe(process.stdout, {end: false});
+                    // TODO: proper line handling (lstream)
+                    stream.setEncoding('binary');
+                    stream.on('data', function (chunk) {
+                        process.stdout.write(chunk.split('\n').map(function (l) {
+                            return l.replace(/^\d+,/, '');
+                        }).join('\n'), 'binary');
+                    })
                     stream.once('end', next);
                 });
             }

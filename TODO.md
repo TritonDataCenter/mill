@@ -12,6 +12,7 @@
 
 # to discuss, todo later
 
+- milld race on creating a tlog job for each source
 - mill cat/grep: support '-l|--local' arg for interpreting start and end values in local time
 - mill cat/grep: support svc= and inst= being substring matches
 - milld source config: reasonable default for 'instance' (hostname or zonename)
