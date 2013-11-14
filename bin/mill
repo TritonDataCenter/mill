@@ -146,16 +146,22 @@ function parseStartEnd(startArg, endArg) {
  * Parse out the common 'service=... instance=... start=... end=...' CLI args
  * into options appropriate for `.find`.
  */
-function findOptsFromArgs(args) {
+function findOptsFromArgs(args, allowExtra) {
     var startArg;
     var endArg;
     var svcs = [];
     var insts = [];
+    var extra = [];
     for (var i = 0; i < args.length; i++) {
         var arg = args[i];
         var eq = arg.indexOf('=');
         if (eq === -1) {
-            throw new errors.UsageError('invalid argument, no "=": ' + arg);
+            if (allowExtra) {
+                extra.push(arg);
+                continue;
+            } else {
+                throw new errors.UsageError('invalid argument, no "=": ' + arg);
+            }
         }
         var field = arg.slice(0, eq);
         var value = arg.slice(eq + 1);
@@ -177,14 +183,18 @@ function findOptsFromArgs(args) {
             endArg = value;
             break;
         default:
-            throw new errors.UsageError('unknown field: ' + field);
-            return;
+            if (allowExtra) {
+                extra.push(arg);
+            } else {
+                throw new errors.UsageError('unknown field: ' + field);
+            }
         }
     }
 
     var dates = parseStartEnd(startArg, endArg);
 
-    return {svcs: svcs, insts: insts, start: dates.start, end: dates.end};
+    return {svcs: svcs, insts: insts, start: dates.start, end: dates.end,
+        extra: extra};
 }
 
 
@@ -543,13 +553,49 @@ Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
     if (opts.help) {
         this.do_help('help', {}, [subcmd], callback);
         return;
-    } else if (args.length !== 0) {
-        return callback(new errors.UsageError(format(
-            'incorrect number of arguments: "%s"', args.join(' '))));
     }
 
-    XXX
-    callback();
+    try {
+        var findOpts = findOptsFromArgs(args, true);
+    } catch (e) {
+        callback(e);
+        return;
+    }
+    if (findOpts.extra.length !== 1) {
+        return callback(new errors.UsageError('incorrect args: there must be ' +
+            'exactly one search term'))
+    }
+    var term = findOpts.extra[0];
+    log.info(findOpts, 'grep logs');
+
+    self.find(findOpts, function (findErr, files) {
+        if (findErr) {
+            return callback(findErr);
+        }
+        log.info({files: files}, 'grep %d files', files.length);
+        if (files.length === 0) {
+            return callback();
+        }
+        var jobSpec = {
+            name: 'grep',
+            phases: [{
+                // Strip the header line, then grep.
+                exec: format('tail +2 | (grep \'%s\' || true)',
+                    term.replace(/'/g, "\\'"))
+            }, {
+                // WARNING: Y2330 alert!
+                exec: 'sort -n -k1,1 -t, | cut -b 15-',
+                type: 'reduce'
+            }]
+        };
+        common.runJob({
+            log: log,
+            client: self.mantaClient,
+            jobSpec: jobSpec,
+            inputs: files,
+            streamOutputs: process.stdout
+        }, callback);
+    });
 };
 Mill.prototype.do_grep.options = [
     {
@@ -562,7 +608,8 @@ Mill.prototype.do_grep.help = (
     'Grep some logs.\n'
     + '\n'
     + 'Usage:\n'
-    + '     {{name}} grep ...\n'
+    + '     {{name}} grep [service=<service> ...] [instance=<instance> ...] \\\n'
+    + '         [start=<time-or-range>] [end=<time-or-range>] <term>\n'
     + '\n'
     + '{{options}}'
 );
