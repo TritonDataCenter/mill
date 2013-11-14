@@ -1,6 +1,6 @@
 - test with larger corpus
-- multi-level 'foo.bar' support for 'mill search' queries and for
-  'mill search -o foo.bar' tabular output columns
+- multi-level 'foo.bar' support for 'mill search' queries
+- support 'grepArgs' in mill search (see TODO in `do_search`)
 - ensure tlog and ilog processing works on logs with non-timestamp lines
 - archive loading
 - milld add

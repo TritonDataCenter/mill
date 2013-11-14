@@ -30,7 +30,7 @@ Search.prototype._parseArgs = function(argv) {
 }
 
 Search.prototype._parseArg = function(arg, i, argv) {
-  var kv = arg.match(/^([a-zA-Z0-9_]+)([><]=*|=~|!=|=+)(.*)$/);
+  var kv = arg.match(/^([a-zA-Z0-9_.]+)([><]=?|=~|!=|==|=)(.*)$/);
   debug('%j', arg, kv, this._filters);
 
   if (kv) {
@@ -48,6 +48,9 @@ Search.prototype._parseArg = function(arg, i, argv) {
         break;
       case '=':
         this._filters.push(stringFilter(key, val));
+        break;
+      case '==':
+        this._filters.push(exactFilter(key, val));
         break;
       case '>=':
         this._filters.push(gtFilter(key, val, true));
@@ -78,21 +81,21 @@ Search.prototype._parseArg = function(arg, i, argv) {
 
 // The arg is a string, so just coerce both to strings
 function exactFilter(key, val) {
-  return function exact(obj) {
-    return (''+obj[key]) === (''+val);
-  };
+  // Intentionally want '==' for type conversion, e.g. `42 == "42"`.
+  return new Function('try { return this.' + key + ' == ' +
+    JSON.stringify(val) + '; } catch (e) {}');
 }
 
 function stringFilter(key, val) {
-  return function string(obj) {
-    return obj[key] && (''+obj[key]).indexOf(val) !== -1;
-  };
+  return new Function('try { return ~this.' + key + '.indexOf(' +
+    JSON.stringify(val) + '); } catch (e) {}');
 }
 
 function neqFilter(key, val) {
   return function neq(obj) {
     return obj[key] != val;
   };
+  //TODO new Function
 }
 
 function regexFilter(key, val) {
@@ -100,6 +103,7 @@ function regexFilter(key, val) {
   return function regex(obj) {
     return obj[key] && (''+obj[key]).match(val);
   };
+  //TODO new Function
 }
 
 function gtFilter(key, val, eq) {
@@ -109,6 +113,7 @@ function gtFilter(key, val, eq) {
   } : function gt(obj) {
     return (+obj[key]) > val;
   };
+  //TODO new Function
 }
 
 function ltFilter(key, val, eq) {
@@ -118,6 +123,7 @@ function ltFilter(key, val, eq) {
   } : function lt(obj) {
     return (+obj[key]) < val;
   };
+  //TODO new Function
 }
 
 Search.prototype._transform = function(chunk, encoding, cb) {
@@ -152,7 +158,7 @@ Search.prototype._parseLine = function(line, index, lines) {
   var obj = JSON.parse(line);
   var pass = true;
   this._filters.forEach(function(f) {
-    pass = pass && f(obj);
+    pass = pass && f.call(obj);
   });
   if (!pass)
     return;
