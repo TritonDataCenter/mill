@@ -1,14 +1,15 @@
 - fold 'merge-cat' into 'cat' (impl detail)
-- clean out 'search.js': can't do the tabular layout in search.js because then
-  can't sort on time in a reduce step.
-    - do the tabular layout in 'mill search' client side
 - test with larger corpus
+- multi-level 'foo.bar' support for 'mill search' queries and for
+  'mill search -o foo.bar' tabular output columns
 - ensure tlog and ilog processing works on logs with non-timestamp lines
 - archive loading
 - milld add
 - milld add nginx (with helpers for finding the log_format line)
 - milld start/stop as intended ... but perhaps 'milld run' for *non* backgrounding
   for SMF??
+- clean out 'search.js': can't do the tabular layout in search.js because then
+  can't sort on time in a reduce step. Only using 'search.js -j ...' now.
 
 
 # to discuss, todo later

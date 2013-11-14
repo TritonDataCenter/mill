@@ -687,8 +687,27 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
             client: self.mantaClient,
             jobSpec: {name: 'search', phases: phases},
             inputs: files,
-            streamOutputs: process.stdout
-        }, callback);
+            streamOutputs: !opts.o ? process.stdout : undefined,
+            gatherOutputs: Boolean(opts.o)
+        }, function (err, results) {
+            if (err) {
+                return callback(err);
+            }
+            log.trace({job: results.job}, 'search job done');
+            if (opts.o) {
+                var output = results.outputs[Object.keys(results.outputs)[0]];
+                var records = []
+                output.split(/\n/g).map(function (line) {
+                    try {
+                        records.push(JSON.parse(line));
+                    } catch (ex) {}
+                });
+                common.tabulate(records, {
+                    skipHeader: opts.H,
+                    columns: opts.o
+                });
+            }
+        });
     });
 };
 Mill.prototype.do_search.options = [
@@ -696,6 +715,16 @@ Mill.prototype.do_search.options = [
         names: ['help', 'h'],
         type: 'bool',
         help: 'Show this help.'
+    },
+    {
+        names: ['H'],
+        type: 'bool',
+        help: 'Do not write header row in tabular output.'
+    },
+    {
+        names: ['o'],
+        type: 'string',
+        help: 'List of fields to display in tabular output (comma-separated).'
     }
 ];
 Mill.prototype.do_search.help = (
