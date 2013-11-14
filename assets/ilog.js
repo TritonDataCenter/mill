@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 var stream = require('stream');
 var Transform = stream.Transform;
 var assert = require('assert');

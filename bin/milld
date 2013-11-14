@@ -160,12 +160,16 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
         return;
     }
     self.rotators = [];
-    var tlog = self.mpath('assets', 'tlog.js')
+    var tlog = self.mpath('assets', 'tlog.js');
+    var ilog = self.mpath('assets', 'ilog.js');
     var jobSpec = {
         name: 'tlog',
         phases: [ {
-            exec: format('/assets%s | mput $MANTA_INPUT_OBJECT.t && mrm $MANTA_INPUT_OBJECT', tlog),
-            assets: [tlog],
+            exec: format('/assets%s | mtee $MANTA_INPUT_OBJECT.t ' +
+                '| /assets%s | mput $MANTA_INPUT_OBJECT.i ' +
+                '&& mrm $MANTA_INPUT_OBJECT ',
+                tlog, ilog),
+            assets: [tlog, ilog],
         } ]
     };
     for (var i = 0; i < sources.length; i++) {

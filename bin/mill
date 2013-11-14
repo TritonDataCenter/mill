@@ -14,6 +14,7 @@ var assert = require('assert-plus');
 var bunyan = require('bunyan');
 var cmdln = require('cmdln'),
     Cmdln = cmdln.Cmdln;
+//var LineStream = require('lstream');
 var manta = require('manta');
 var vasync = require('vasync');
 
@@ -437,9 +438,15 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
                         return next(getErr);
                     }
                     // TODO: proper line handling (lstream)
+                    //var lstream = new LineStream();
                     stream.setEncoding('binary');
+                    var head;
                     stream.on('data', function (chunk) {
-                        process.stdout.write(chunk.split('\n').map(function (l) {
+                        var lines = chunk.split('\n');
+                        if (!head) {
+                            head = lines.shift();
+                        }
+                        process.stdout.write(lines.map(function (l) {
                             return l.replace(/^\d+,/, '');
                         }).join('\n'), 'binary');
                     })
@@ -496,6 +503,9 @@ Mill.prototype.do_merge_cat = function (subcmd, opts, args, callback) {
         var jobSpec = {
             name: 'merge-cat',
             phases: [{
+                // Strip the header line.
+                exec: 'tail +2'
+            }, {
                 // WARNING: Y2330 alert!
                 exec: 'sort -n -k1,1 -t, | cut -b 15-',
                 type: 'reduce'
