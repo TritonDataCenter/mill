@@ -1,4 +1,3 @@
-- fold 'merge-cat' into 'cat' (impl detail)
 - test with larger corpus
 - multi-level 'foo.bar' support for 'mill search' queries and for
   'mill search -o foo.bar' tabular output columns

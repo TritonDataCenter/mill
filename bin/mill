@@ -541,13 +541,13 @@ Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
     var term = findOpts.extra[0];
     log.info(findOpts, 'grep logs');
 
-    self.find(findOpts, function (findErr, files) {
+    self.find(findOpts, function (findErr, findRes) {
         if (findErr) {
             return callback(findErr);
         }
-        //e('grep files:', files)
-        log.info({files: files}, 'grep %d files', files.length);
-        if (files.length === 0) {
+        //e('grep files:', findRes)
+        log.info({findRes: findRes}, 'grep %d files', findRes.files.length);
+        if (findRes.files.length === 0) {
             return callback();
         }
         var jobSpec = {
@@ -566,7 +566,7 @@ Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
             log: log,
             client: self.mantaClient,
             jobSpec: jobSpec,
-            inputs: files,
+            inputs: findRes.files,
             streamOutputs: process.stdout
         }, callback);
     });
@@ -624,13 +624,19 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
     //e('start', findOpts.start.toISOString())
     //e('end', findOpts.end.toISOString())
 
-    self.find(findOpts, function (findErr, files) {
+//common.tabulate(records, {
+//    skipHeader: opts.H,
+//    columns: opts.o
+//});
+//XXX
+
+    self.find(findOpts, function (findErr, findRes) {
         if (findErr) {
             return callback(findErr);
         }
-        log.info({files: files}, 'search %d files', files.length);
-        //e('files:', files)
-        if (files.length === 0) {
+        log.info({findRes: findRes}, 'search %d files', findRes.files.length);
+        //e('files:', findRes.files)
+        if (findRes.files.length === 0) {
             return callback();
         }
         var searchJs = self.mpath('assets', 'search.js');
@@ -663,7 +669,7 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
             log: log,
             client: self.mantaClient,
             jobSpec: {name: 'search', phases: phases},
-            inputs: files,
+            inputs: findRes.files,
             streamOutputs: !opts.o ? process.stdout : undefined,
             gatherOutputs: Boolean(opts.o)
         }, function (err, results) {
@@ -679,6 +685,7 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
                         records.push(JSON.parse(line));
                     } catch (ex) {}
                 });
+                //p(records)
                 common.tabulate(records, {
                     skipHeader: opts.H,
                     columns: opts.o
