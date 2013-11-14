@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // pipe a ilog in, and a bunch of command line configs, and it'll
 // output just the selected data
 
@@ -176,7 +177,7 @@ Search.prototype._parseLine = function(line, index, lines) {
     default:
       throw new Error('Unknown output format: ' + this._output);
   }
-  this.push(line + '\n', 'utf8');
+  this.push(ts + ',' + line + '\n', 'utf8');
 }
 
 if (module === require.main) {

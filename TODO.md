@@ -1,4 +1,7 @@
 - fold 'merge-cat' into 'cat' (impl detail)
+- clean out 'search.js': can't do the tabular layout in search.js because then
+  can't sort on time in a reduce step.
+    - do the tabular layout in 'mill search' client side
 - test with larger corpus
 - ensure tlog and ilog processing works on logs with non-timestamp lines
 - archive loading
@@ -10,6 +13,7 @@
 
 # to discuss, todo later
 
+- special case '.i' for bunyan logs to actually be a snaplink
 - milld race on creating a tlog job for each source
 - mill cat/grep: support '-l|--local' arg for interpreting start and end values in local time
 - mill cat/grep: support svc= and inst= being substring matches

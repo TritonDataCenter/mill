@@ -4,6 +4,7 @@
  */
 
 var p = console.log;
+var e = console.error;
 var crypto = require('crypto');
 var fs = require('fs');
 var path = require('path');
@@ -129,7 +130,7 @@ function parseStartEnd(startArg, endArg) {
         start = relativeDate(end, '-', startArg || '5m');
     } else {
         start = relativeDate(now, '-', '10m');
-        end = now;  //XXX relativeDate(start, '+', '5m');
+        end = now;
     }
 
     if (end < start) {
@@ -612,6 +613,95 @@ Mill.prototype.do_grep.help = (
     + '         [start=<time-or-range>] [end=<time-or-range>] <term>\n'
     + '\n'
     + '{{options}}'
+);
+
+
+Mill.prototype.do_search = function (subcmd, opts, args, callback) {
+    var self = this;
+    if (opts.help) {
+        this.do_help('help', {}, [subcmd], callback);
+        return;
+    }
+
+    try {
+        var findOpts = findOptsFromArgs(args, true);
+    } catch (e) {
+        callback(e);
+        return;
+    }
+    log.info(findOpts, 'search logs');
+
+    var grepArgs = [];
+    var opArgs = [];
+    findOpts.extra.forEach(function (e) {
+        if (/(>|=)/.test(e)) {
+            // Any argument that assets/search.js will grok.
+            opArgs.push(e);
+        } else {
+            grepArgs.push(e);
+        }
+    });
+    if (grepArgs.length) {
+        callback(new errors.UsageError('cannot specify "grep" args (those ' +
+            'without an operator) yet: ' + grepArgs.join(', ')));
+    }
+
+    self.find(findOpts, function (findErr, files) {
+        if (findErr) {
+            return callback(findErr);
+        }
+        log.info({files: files}, 'search %d files', files.length);
+        if (files.length === 0) {
+            return callback();
+        }
+        var searchJs = self.mpath('assets', 'search.js');
+        var phases = []
+        if (grepArgs.length) {
+            // TODO: support grep args with a pre-grep. But then need to
+            // handle header lines specially in search.js. I.e. add a switch to
+            // search.js to not expect it.
+            TODO
+        } else {
+            var searchArgs = opArgs.map(function (o) {
+                return o.replace(/'/g, "\\'")
+            }).join("' '");
+            phases = [
+                {
+                    exec: format('/assets%s -j \'%s\'', searchJs, searchArgs),
+                    assets: [searchJs]
+                },
+                {
+                    // WARNING: Y2330 alert!
+                    exec: 'sort -n -k1,1 -t, | cut -b 15-',
+                    type: 'reduce'
+                }
+            ];
+        }
+        common.runJob({
+            log: log,
+            client: self.mantaClient,
+            jobSpec: {name: 'search', phases: phases},
+            inputs: files,
+            streamOutputs: process.stdout
+        }, callback);
+    });
+};
+Mill.prototype.do_search.options = [
+    {
+        names: ['help', 'h'],
+        type: 'bool',
+        help: 'Show this help.'
+    }
+];
+Mill.prototype.do_search.help = (
+    'Search parsed logs with field/value predicates.\n'
+    + '\n'
+    + 'Usage:\n'
+    + '     {{name}} search [service=<service> ...] [instance=<instance> ...] \\\n'
+    + '         [start=<time-or-range>] [end=<time-or-range>] <predicate>...\n'
+    + '\n'
+    + '{{options}}\n'
+    + 'TODO: doc this\n'
 );
 
 
