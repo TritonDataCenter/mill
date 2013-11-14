@@ -306,6 +306,10 @@ Mill.prototype.listSvcs = function listSvcs(svcArgs, callback) {
  * end (Date), svc, and inst.
  *
  * TODO: eventually support multiple svc and inst. And substring matching.
+ *
+ * @param {Object} options:
+ *      - ...
+ *      - `logType` Optional. 'tlog' (default) or 'ilog'.
  */
 Mill.prototype.find = function find(args, callback) {
     var self = this;
@@ -314,6 +318,15 @@ Mill.prototype.find = function find(args, callback) {
     assert.object(args.end, 'args.end');
     assert.arrayOfString(args.svcs, 'args.svcs');
     assert.arrayOfString(args.insts, 'args.insts');
+    assert.optionalString(args.logType, 'args.logType');
+    var logExt = {
+        ilog: 'i',
+        tlog: 't'
+    }[args.logType || 'tlog'];
+    if (!logExt) {
+        return callback(new errors.UsageError(
+            'invalid find "args.logType": ' + args.logType));
+    }
 
     // Which hours to consider.
     var hours = [];
@@ -361,7 +374,8 @@ Mill.prototype.find = function find(args, callback) {
                     var instsRe = (args.insts.length
                         ? format('(%s)', args.insts.join('|'))
                         : '(.*?)');
-                    var pat = new RegExp('^' + instsRe + '-\\d+\\.\\w+\\.log\\.t$');
+                    var pat = new RegExp('^' + instsRe +
+                        '-\\d+\\.\\w+\\.log\\.' + logExt + '$');
                     res.on('object', function (obj) {
                         if (pat.test(obj.name)) {
                             files.push(path.join(dir, obj.name));
@@ -573,6 +587,7 @@ Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
         if (findErr) {
             return callback(findErr);
         }
+        //e('grep files:', files)
         log.info({files: files}, 'grep %d files', files.length);
         if (files.length === 0) {
             return callback();
@@ -641,6 +656,7 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
             grepArgs.push(extra);
         }
     });
+    findOpts.logType = 'ilog';
     if (grepArgs.length) {
         callback(new errors.UsageError('cannot specify "grep" args (those ' +
             'without an operator) yet: ' + grepArgs.join(', ')));
@@ -667,12 +683,15 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
             // search.js to not expect it.
             TODO
         } else {
+            //var searchArgs = opArgs.map(function (o) {
+            //    return o.replace(/'/g, "\\'")
+            //}).join("' '");
             var searchArgs = opArgs.map(function (o) {
-                return o.replace(/'/g, "\\'")
-            }).join("' '");
+                return JSON.stringify(o);
+            }).join(' ');
             phases = [
                 {
-                    exec: format('/assets%s -j \'%s\'', searchJs, searchArgs),
+                    exec: format('/assets%s -j %s', searchJs, searchArgs),
                     assets: [searchJs]
                 },
                 {
