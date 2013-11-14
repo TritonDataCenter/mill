@@ -624,12 +624,6 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
     //e('start', findOpts.start.toISOString())
     //e('end', findOpts.end.toISOString())
 
-//common.tabulate(records, {
-//    skipHeader: opts.H,
-//    columns: opts.o
-//});
-//XXX
-
     self.find(findOpts, function (findErr, findRes) {
         if (findErr) {
             return callback(findErr);
@@ -647,9 +641,6 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
             // search.js to not expect it.
             TODO
         } else {
-            //var searchArgs = opArgs.map(function (o) {
-            //    return o.replace(/'/g, "\\'")
-            //}).join("' '");
             var searchArgs = opArgs.map(function (o) {
                 return JSON.stringify(o);
             }).join(' ');
@@ -685,7 +676,6 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
                         records.push(JSON.parse(line));
                     } catch (ex) {}
                 });
-                //p(records)
                 common.tabulate(records, {
                     skipHeader: opts.H,
                     columns: opts.o
