@@ -1,15 +1,20 @@
 {
-    "manta": {
-        "keyId": "9d:1c:f4:69:66:cb:bf:1a:40:b5:d2:c2:6a:0a:eb:2d",
-        "user": "yunong",
-        "url": "https://us-east.manta.joyent.com",
-        "key": "/Users/yunong/.ssh/id_rsa"
-    },
-    "instance": "some-instance",
-    "service": "yunongs-special-service",
-    "interval": 20000,
-    "location": "/tmp/yunonglog",
-    "rotateDir": "/tmp/mill/rotatedLogs",
-    "logType": "generic",
-    "mantaLogPath": "/yunong/stor/mill/logs"
+    "sources": [
+        {
+            "service": "foo",
+            "instance": "grape",
+            "interval": 300000,
+            "location": "/var/tmp/foo.log",
+            "logType": "bunyan",
+            "format": "$remote_addr - $remote_user [$time_local] $request \"$status\" $body_bytes_sent \"$http_referer\" \"$http_user_agent\" \"$http_x_forwarded_for\""
+        },
+        {
+            "service": "bar",
+            "instance": "grape",
+            "interval": 300000,
+            "location": "/var/tmp/bar.log",
+            "logType": "bunyan",
+            "format": "$remote_addr - $remote_user [$time_local] $request \"$status\" $body_bytes_sent \"$http_referer\" \"$http_user_agent\" \"$http_x_forwarded_for\""
+        }
+    ]
 }
