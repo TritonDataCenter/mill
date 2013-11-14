@@ -148,6 +148,43 @@ Ilog.prototype._parseNginxLine = function(line, index, lines) {
   delete obj._time_iso8601;
   obj.time = date.toISOString();
 
+  if (obj.request) {
+    var r = obj.request.match(/([A-Z]+) ([^ ]+) HTTP\/(1\.0|1\.1|0\.9)/);
+    if (r) {
+      obj.req = {
+        method: r[1],
+        url: r[2],
+        httpVersion: r[3],
+        headers: {}
+      };
+    }
+    Object.keys(obj).forEach(function(k) {
+      if (k.match(/^http_/)) {
+        var h = k.substr(5).replace(/_/g, '-');
+        obj.req.headers[h] = obj[k];
+      }
+    });
+    if (obj.request_length)
+      obj.req.headers['content-length'] = obj.request_length;
+  }
+
+  if (obj.status || (obj.body_bytes_sent !== undefined)) {
+    obj.res = {
+      statusCode: obj.status,
+      headers: {}
+    };
+    if (obj.body_bytes_sent) {
+      obj.res.headers['content-length'] = obj.body_bytes_sent;
+    }
+    Object.keys(obj).forEach(function(k) {
+      if (k.match(/^sent_http_/)) {
+        var h = k.substr('sent_http_'.length).replace(/_/g, '-');
+        obj.res.headers[h] = obj[k];
+      }
+    });
+  }
+
+
   this.push(ts + ',' + JSON.stringify(obj) + '\n', 'utf8');
 };
 
