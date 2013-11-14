@@ -1,8 +1,11 @@
-- mill grep
-- [Y? T?] Get metadata header line into logs.... to be used for ijob processing?
-- [Isaac] .tlog -> .ilog processing to run post-upload
-  I think it should derive from the *.tlog* because then we can re-run the
-  .ilog generation after the .log files have been removed.
+- fold 'merge-cat' into 'cat' (impl detail)
+- test with larger corpus
+- ensure tlog and ilog processing works on logs with non-timestamp lines
+- archive loading
+- milld add
+- milld add nginx (with helpers for finding the log_format line)
+- milld start/stop as intended ... but perhaps 'milld run' for *non* backgrounding
+  for SMF??
 
 
 # to discuss, todo later
