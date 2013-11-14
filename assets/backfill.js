@@ -44,18 +44,39 @@ barrier.on('drain', function () {
     process.exit();
 });
 
-s.on('readable', function () {
-    var line = s.read();
-    if (!line) {
-        return
-    };
-    do {
-        var ts = parseInt(line.substr(0, 14), 10);
+s.on('data', function (line) {
+    var ts = parseInt(line.substr(0, 14), 10);
 
-        if (!prevInterval) {
+    if (!prevInterval) {
+        prevInterval = ts;
+        s.pause();
+        ps = new mod_PStream({
+            highWaterMark: 16 * 1024
+        });
+        ps.push(line + '\n');
+        var path = getMantaPath(ts);
+        p('mputting ' + path);
+        barrier.start('mput ' + path);
+        manta.put(path, ps, {mkdirs: true}, function (err) {
+            p('returned from put' + path);
+            barrier.done('mput ' + path);
+            if (err) {
+                console.error(err, 'unable to upload to manta');
+                log.fatal({err: err});
+                process.exit(1);
+            }
+            s.resume();
+        });
+        s.resume();
+    } else {
+        var diff = ts - prevInterval;
+        if (diff >= interval) {
             prevInterval = ts;
             s.pause();
-            ps = new mod_PStream();
+            ps.push(null);
+            ps = new mod_PStream({
+                highWaterMark: 16 * 1024
+            });
             ps.push(line + '\n');
             var path = getMantaPath(ts);
             p('mputting ' + path);
@@ -68,34 +89,12 @@ s.on('readable', function () {
                     log.fatal({err: err});
                     process.exit(1);
                 }
-            });
-            s.resume();
-        } else {
-            var diff = ts - prevInterval;
-            if (diff >= interval) {
-                prevInterval = ts;
-                s.pause();
-                ps.push(null);
-                ps = new mod_PStream();
-                ps.push(line + '\n');
-                var path = getMantaPath(ts);
-                p('mputting ' + path);
-                barrier.start('mput ' + path);
-                manta.put(path, ps, {mkdirs: true}, function (err) {
-                    p('returned from put' + path);
-                    barrier.done('mput ' + path);
-                    if (err) {
-                        console.error(err, 'unable to upload to manta');
-                        log.fatal({err: err});
-                        process.exit(1);
-                    }
-                });
                 s.resume();
-            }
+            });
         }
-        ps.push(line + '\n');
-        line = s.read();
-    } while (line);
+    }
+    ps.push(line + '\n');
+    line = s.read();
 });
 
 s.on('error', function (err) {
