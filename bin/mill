@@ -353,6 +353,7 @@ Mill.prototype.find = function find(args, callback) {
         });
         log.info({svcHours: svcHours}, 'need to consider logs for these hours');
 
+        var foundInsts = {};
         var hits = [];
         var startTime = args.start.valueOf();
         var endTime = args.end.valueOf();
@@ -377,8 +378,10 @@ Mill.prototype.find = function find(args, callback) {
                     var pat = new RegExp('^' + instsRe +
                         '-\\d+\\.\\w+\\.log\\.' + logExt + '$');
                     res.on('object', function (obj) {
-                        if (pat.test(obj.name)) {
+                        var match = pat.exec(obj.name);
+                        if (match) {
                             files.push(path.join(dir, obj.name));
+                            foundInsts[match[1]] = true;
                         }
                     });
                     res.once('end', function () {
@@ -411,7 +414,11 @@ Mill.prototype.find = function find(args, callback) {
             if (err) {
                 callback(err);
             } else {
-                callback(null, hits);
+                callback(null, {
+                    svcs: svcs,
+                    insts: Object.keys(foundInsts),
+                    files: hits
+                });
             }
         });
     });
@@ -431,56 +438,67 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
         callback(ex);
         return;
     }
-    if (findOpts.svcs.length === 0) {
-        callback(new errors.UsageError('no log "service" was given'));
-        return;
-    } else if (findOpts.svcs.length > 1) {
-        callback(new errors.UsageError('only one "service" is supported ' +
-            '(use "merge-cat")'));
-        return;
-    }
-    if (findOpts.insts.length === 0) {
-        callback(new errors.UsageError('no log "instance" was given'));
-        return;
-    } else if (findOpts.insts.length > 1) {
-        callback(new errors.UsageError('only one "instance" is supported ' +
-            '(use "merge-cat")'));
-        return;
-    }
     log.info(findOpts, 'cat logs');
+    //e('cat findOpts', findOpts)
 
-    self.find(findOpts, function (findErr, files) {
+    self.find(findOpts, function (findErr, findRes) {
         if (findErr) {
             return callback(findErr);
         }
-        log.info({files: files}, 'cat %d files', files.length);
-        vasync.forEachPipeline({
-            inputs: files,
-            func: function catOne(file, next) {
-                log.info({file: file}, 'cat a file');
-                self.mantaClient.get(file, function (getErr, stream) {
-                    if (getErr) {
-                        return next(getErr);
-                    }
-                    // TODO: proper line handling (lstream)
-                    //var lstream = new LineStream();
-                    stream.setEncoding('binary');
-                    var head;
-                    stream.on('data', function (chunk) {
-                        var lines = chunk.split('\n');
-                        if (!head) {
-                            head = lines.shift();
+        log.info({findRes: findRes}, 'cat %d files', findRes.files.length);
+        //e('cat files', findRes)
+        if (findRes.files.length === 0) {
+            callback();
+        } else if (findRes.svcs.length === 1 && findRes.insts.length === 1) {
+            // Simple cat of sorted files.
+            vasync.forEachPipeline({
+                inputs: findRes.files,
+                func: function catOne(file, next) {
+                    log.info({file: file}, 'cat a file');
+                    self.mantaClient.get(file, function (getErr, stream) {
+                        if (getErr) {
+                            return next(getErr);
                         }
-                        process.stdout.write(lines.map(function (l) {
-                            return l.replace(/^\d+,/, '');
-                        }).join('\n'), 'binary');
-                    })
-                    stream.once('end', next);
-                });
-            }
-        }, function (err, results) {
-            callback(err);
-        });
+                        // TODO: proper line handling (lstream)
+                        //var lstream = new LineStream();
+                        stream.setEncoding('binary');
+                        var head;
+                        stream.on('data', function (chunk) {
+                            var lines = chunk.split('\n');
+                            if (!head) {
+                                head = lines.shift();
+                            }
+                            process.stdout.write(lines.map(function (l) {
+                                return l.replace(/^\d+,/, '');
+                            }).join('\n'), 'binary');
+                        })
+                        stream.once('end', next);
+                    });
+                }
+            }, function (err) {
+                callback(err);
+            });
+        } else {
+            var jobSpec = {
+                name: 'merge-cat',
+                phases: [{
+                    // Strip the header line.
+                    exec: 'tail +2'
+                }, {
+                    // WARNING: Y2330 alert!
+                    exec: 'sort -n -k1,1 -t, | cut -b 15-',
+                    type: 'reduce'
+                }]
+            };
+            common.runJob({
+                log: log,
+                client: self.mantaClient,
+                jobSpec: jobSpec,
+                inputs: findRes.files,
+                streamOutputs: process.stdout
+            }, callback);
+        }
+
     });
 };
 Mill.prototype.do_cat.options = [
@@ -491,75 +509,15 @@ Mill.prototype.do_cat.options = [
     }
 ];
 Mill.prototype.do_cat.help = (
-    'Cat the given time range of a log for a service instance.\n'
+    'Cat the given time range of logs and merge in time order.\n'
     + '\n'
     + 'Usage:\n'
-    + '     {{name}} cat service=<service> instance=<instance> \\\n'
+    + '     {{name}} cat [service=<service>] [instance=<instance>] \\\n'
     + '         [start=<time-or-range>] [end=<time-or-range>]\n'
     + '\n'
     + '{{options}}\n'
-    + 'Cat logs for a service instance for the given time range. If "start"\n'
+    + 'Cat logs for the given time range. If "start"\n'
     + 'and "end" are not given it defaults to the last 10 minutes.'
-);
-
-Mill.prototype.do_merge_cat = function (subcmd, opts, args, callback) {
-    var self = this;
-    if (opts.help) {
-        this.do_help('help', {}, [subcmd], callback);
-        return;
-    }
-
-    try {
-        var findOpts = findOptsFromArgs(args);
-    } catch (ex) {
-        callback(ex);
-        return;
-    }
-    log.info(findOpts, 'merge-cat logs');
-
-    self.find(findOpts, function (findErr, files) {
-        if (findErr) {
-            return callback(findErr);
-        }
-        log.info({files: files}, 'merge-cat %d files', files.length);
-        if (files.length === 0) {
-            return callback();
-        }
-        var jobSpec = {
-            name: 'merge-cat',
-            phases: [{
-                // Strip the header line.
-                exec: 'tail +2'
-            }, {
-                // WARNING: Y2330 alert!
-                exec: 'sort -n -k1,1 -t, | cut -b 15-',
-                type: 'reduce'
-            }]
-        };
-        common.runJob({
-            log: log,
-            client: self.mantaClient,
-            jobSpec: jobSpec,
-            inputs: files,
-            streamOutputs: process.stdout
-        }, callback);
-    });
-};
-Mill.prototype.do_merge_cat.options = [
-    {
-        names: ['help', 'h'],
-        type: 'bool',
-        help: 'Show this help.'
-    }
-];
-Mill.prototype.do_merge_cat.help = (
-    'Cat the given time range of *multiple* logs and merge in time order.\n'
-    + '\n'
-    + 'Usage:\n'
-    + '     {{name}} merge-cat [service=<service> ...] [instance=<instance> ...] \\\n'
-    + '         [start=<time-or-range>] [end=<time-or-range>]\n'
-    + '\n'
-    + '{{options}}\n'
 );
 
 
@@ -621,7 +579,7 @@ Mill.prototype.do_grep.options = [
     }
 ];
 Mill.prototype.do_grep.help = (
-    'Grep some logs.\n'
+    'Grep logs for the given time range and sort in time order.\n'
     + '\n'
     + 'Usage:\n'
     + '     {{name}} grep [service=<service> ...] [instance=<instance> ...] \\\n'
