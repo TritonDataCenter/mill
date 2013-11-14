@@ -89,7 +89,8 @@ MillDaemon.prototype.init = function (opts, args, callback) {
             }),
             user: config.account,
             url: config.url,
-            log: log
+            log: log,
+            agent: false
         });
     });
 
@@ -166,7 +167,7 @@ MillDaemon.prototype.do_start = function (subcmd, opts, args, callback) {
             exec: format('/assets%s | mput $MANTA_INPUT_OBJECT.t && mrm $MANTA_INPUT_OBJECT', tlog),
             assets: [tlog],
         } ]
-    }
+    };
     for (var i = 0; i < sources.length; i++) {
         var opts = {
             log: log,
