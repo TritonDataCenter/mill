@@ -129,7 +129,7 @@ function parseStartEnd(startArg, endArg) {
     } else if (end) {
         start = relativeDate(end, '-', startArg || '5m');
     } else {
-        start = relativeDate(now, '-', '10m');
+        start = relativeDate(now, '-', startArg || '10m');
         end = now;
     }
 
@@ -413,8 +413,8 @@ Mill.prototype.do_cat = function (subcmd, opts, args, callback) {
 
     try {
         var findOpts = findOptsFromArgs(args);
-    } catch (e) {
-        callback(e);
+    } catch (ex) {
+        callback(ex);
         return;
     }
     if (findOpts.svcs.length === 0) {
@@ -497,8 +497,8 @@ Mill.prototype.do_merge_cat = function (subcmd, opts, args, callback) {
 
     try {
         var findOpts = findOptsFromArgs(args);
-    } catch (e) {
-        callback(e);
+    } catch (ex) {
+        callback(ex);
         return;
     }
     log.info(findOpts, 'merge-cat logs');
@@ -558,8 +558,8 @@ Mill.prototype.do_grep = function (subcmd, opts, args, callback) {
 
     try {
         var findOpts = findOptsFromArgs(args, true);
-    } catch (e) {
-        callback(e);
+    } catch (ex) {
+        callback(ex);
         return;
     }
     if (findOpts.extra.length !== 1) {
@@ -625,32 +625,37 @@ Mill.prototype.do_search = function (subcmd, opts, args, callback) {
 
     try {
         var findOpts = findOptsFromArgs(args, true);
-    } catch (e) {
-        callback(e);
+    } catch (ex) {
+        callback(ex);
         return;
     }
     log.info(findOpts, 'search logs');
 
     var grepArgs = [];
     var opArgs = [];
-    findOpts.extra.forEach(function (e) {
-        if (/(>|=)/.test(e)) {
+    findOpts.extra.forEach(function (extra) {
+        if (/(>|=)/.test(extra)) {
             // Any argument that assets/search.js will grok.
-            opArgs.push(e);
+            opArgs.push(extra);
         } else {
-            grepArgs.push(e);
+            grepArgs.push(extra);
         }
     });
     if (grepArgs.length) {
         callback(new errors.UsageError('cannot specify "grep" args (those ' +
             'without an operator) yet: ' + grepArgs.join(', ')));
     }
+    //e('findOpts', findOpts)
+    //e('now', new Date().toISOString())
+    //e('start', findOpts.start.toISOString())
+    //e('end', findOpts.end.toISOString())
 
     self.find(findOpts, function (findErr, files) {
         if (findErr) {
             return callback(findErr);
         }
         log.info({files: files}, 'search %d files', files.length);
+        //e('files:', files)
         if (files.length === 0) {
             return callback();
         }
