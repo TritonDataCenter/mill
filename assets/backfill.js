@@ -17,7 +17,7 @@ var mod_zeroPad = require('../lib/common').zeroPad;
 var mod_PStream = require('stream').PassThrough;
 
 // ghetto hack the interval to 5 mins for now
-var interval = process.env.MILL_INTERVAL || 5 * 60 * 1000;
+var interval = process.env.MILL_INTERVAL || 10 * 1000;
 var dataDir = process.env.MILL_DIR;
 var service = process.env.MILL_SERVICE;
 var instance = process.env.MILL_INSTANCE;
@@ -50,15 +50,25 @@ barrier.on('drain', function () {
     process.exit();
 });
 
+var count = 0;
+var header;
+
 s.on('data', function (line) {
+    // skip the header
+    if (++count === 1) {
+        header = line;
+        return;
+    }
     var ts = parseInt(line.substr(0, 14), 10);
 
     if (!prevInterval) {
+        p(line);
         prevInterval = ts;
         s.pause();
         ps = new mod_PStream({
             highWaterMark: 16 * 1024
         });
+        ps.push(header + '\n');
         ps.push(line + '\n');
         var path = getMantaPath(ts);
         p('mputting ' + path);
@@ -83,6 +93,7 @@ s.on('data', function (line) {
             ps = new mod_PStream({
                 highWaterMark: 16 * 1024
             });
+            ps.push(header + '\n');
             ps.push(line + '\n');
             var path = getMantaPath(ts);
             p('mputting ' + path);
