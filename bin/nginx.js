@@ -62,7 +62,7 @@ function conf(cfile, root) {
           file = path.resolve(root, file);
         var type = al[1];
         logs[file] = {
-          sources: {
+          source: {
             format: type,
             service: 'http',
             instance: process.env.HOSTNAME || 'localhost',
@@ -82,7 +82,7 @@ function conf(cfile, root) {
             var file = al[0];
             var type = al[1];
             logs[file] = {
-              sources: {
+              source: {
                 format: type,
                 service: server.server_name && server.server_name[0] || 'http',
                 instance: process.env.HOSTNAME || 'localhost',
@@ -98,7 +98,7 @@ function conf(cfile, root) {
     }
 
     Object.keys(logs).forEach(function(file) {
-      logs[file].sources.format = formats[logs[file].sources.format];
+      logs[file].source.format = formats[logs[file].source.format];
     });
     console.error(logs);
   });

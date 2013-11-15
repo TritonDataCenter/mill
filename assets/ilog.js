@@ -45,9 +45,9 @@ Ilog.prototype._parseLine = function(line, index, lines) {
   if (!this._head) {
     this._head = JSON.parse(line);
     debug('head', this._head);
-    this._type = this._head.sources.type;
+    this._type = this._head.source.type;
     if (this._type === 'nginx')
-      this._format = parseNginxFormat(this._head.sources.format);
+      this._format = parseNginxFormat(this._head.source.format);
     this.push(line + '\n', 'utf8');
   } else if (this._type === 'nginx')
     this._parseNginxLine(line, index, lines);
