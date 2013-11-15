@@ -34,7 +34,7 @@ var log = mod_bunyan.createLogger({
     name: 'milld-backfill',
     serializers: mod_bunyan.stdSerializers,
     stream: process.stderr,
-    level: 'info'
+    level: 'trace'
 });
 
 var prevInterval;
@@ -122,8 +122,8 @@ function getMantaPath(timeInMs) {
     var date = mod_zeroPad(time.getUTCDate(), 2);
     var hour = mod_zeroPad(time.getUTCHours(), 2);
 
-    // /$user/stor/mill/logs/$service/$year/$month/$day/$hour/$instance-$timestamp.$type.log
-    var path = mod_sprintf('%s/logs/%s/%s/%s/%s/%s/%s-%s.%s.log', dataDir,
+    // /$user/stor/mill/logs/$service/$year/$month/$day/$hour/$instance-$timestamp.$type.log.t
+    var path = mod_sprintf('%s/logs/%s/%s/%s/%s/%s/%s-%s.%s.log.t', dataDir,
                            service, year, month, date, hour,
                            instance, timeInMs, type);
 
