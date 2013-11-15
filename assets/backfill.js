@@ -17,7 +17,7 @@ var mod_zeroPad = require('../lib/common').zeroPad;
 var mod_PStream = require('stream').PassThrough;
 
 // ghetto hack the interval to 5 mins for now
-var interval = process.env.MILL_INTERVAL || 10 * 1000;
+var interval = process.env.MILL_INTERVAL || 60 * 10 * 1000;
 var dataDir = process.env.MILL_DIR;
 var service = process.env.MILL_SERVICE;
 var instance = process.env.MILL_INSTANCE;
