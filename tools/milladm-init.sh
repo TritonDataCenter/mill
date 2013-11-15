@@ -22,3 +22,4 @@ mmkdir $MILL_DIR/assets
 mput -f $TOP/assets/tlog.js $MILL_DIR/assets/tlog.js
 mput -f $TOP/assets/ilog.js $MILL_DIR/assets/ilog.js
 mput -f $TOP/assets/search.js $MILL_DIR/assets/search.js
+mput -f $TOP/assets/backfill.js $MILL_DIR/assets/backfill.js

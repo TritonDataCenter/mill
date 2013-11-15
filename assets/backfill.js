@@ -4,6 +4,7 @@
  */
 
 var p = console.log;
+var e = console.error;
 var mod_bunyan = require('bunyan');
 var mod_exec = require('child_process').exec;
 var mod_manta = require('manta');
@@ -16,11 +17,16 @@ var mod_zeroPad = require('../lib/common').zeroPad;
 var mod_PStream = require('stream').PassThrough;
 
 // ghetto hack the interval to 5 mins for now
-var interval = process.env.MILL_INTERVAL || 3 * 1000;
-var dataDir = process.env.MILL_DATA_DIR;
+var interval = process.env.MILL_INTERVAL || 5 * 60 * 1000;
+var dataDir = process.env.MILL_DIR;
 var service = process.env.MILL_SERVICE;
 var instance = process.env.MILL_INSTANCE;
 var type = process.env.MILL_LOG_TYPE || 'generic';
+
+if (!dataDir) throw new Error('no MILL_DIR');
+if (!service) throw new Error('no MILL_SERVICE');
+if (!instance) throw new Error('no MILL_INSTANCE');
+if (!type) throw new Error('no MILL_LOG_TYPE');
 
 var s = process.stdin.pipe(new mod_lstream());
 

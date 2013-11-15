@@ -100,8 +100,8 @@ function neqFilter(key, val) {
 
 function regexFilter(key, val) {
   val = new RegExp(val);
-  return function regex(obj) {
-    return obj[key] && (''+obj[key]).match(val);
+  return function regex() {
+    return this[key] && (''+this[key]).match(val);
   };
   //TODO new Function
 }
