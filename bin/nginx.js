@@ -61,7 +61,17 @@ function conf(cfile, root) {
         if (file.charAt(0) !== '/')
           file = path.resolve(root, file);
         var type = al[1];
-        logs[file] = type;
+        logs[file] = {
+          sources: {
+            format: type,
+            service: 'http',
+            instance: process.env.HOSTNAME || 'localhost',
+            type: 'nginx',
+            logType: 'nginx',
+            location: file
+          },
+          version: '1.0.0'
+        };
       });
     }
 
@@ -71,14 +81,24 @@ function conf(cfile, root) {
           server.access_log.forEach(function(al) {
             var file = al[0];
             var type = al[1];
-            logs[file] = type;
+            logs[file] = {
+              sources: {
+                format: type,
+                service: server.server_name && server.server_name[0] || 'http',
+                instance: process.env.HOSTNAME || 'localhost',
+                type: 'nginx',
+                logType: 'nginx',
+                location: file
+              },
+              version: '1.0.0'
+            };
           });
         }
       });
     }
 
     Object.keys(logs).forEach(function(file) {
-      logs[file] = formats[logs[file]];
+      logs[file].sources.format = formats[logs[file].sources.format];
     });
     console.error(logs);
   });
